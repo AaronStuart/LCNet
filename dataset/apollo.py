@@ -1,3 +1,4 @@
+import cv2
 import torch
 import numpy as np
 from PIL import Image
@@ -13,7 +14,7 @@ class ApolloLaneDataset(Dataset):
         self.path_list = []
         with open(self.path_file) as file:
             for line in file.readlines():
-                self.path_list.append(line.lstrip().rstrip().split(','))
+                self.path_list.append(line.strip().split(','))
 
     def __len__(self):
         return len(self.path_list)
@@ -33,14 +34,8 @@ class ApolloLaneDataset(Dataset):
         )
         image = image_transform(image)
 
-        # preprocess label
-        label = Image.open(label_path)
-        label_transform = transforms.Compose(
-            [
-                transforms.Resize([512, 1024],interpolation = Image.NEAREST)
-            ]
-        )
-        label = label_transform(label)
+        # read label file
+        label = torch.tensor(cv2.imread(label_path, cv2.IMREAD_UNCHANGED))
 
         return {'image': image, 'label': label}
 

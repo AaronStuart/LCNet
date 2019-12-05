@@ -25,9 +25,6 @@ class FocalLoss(nn.Module):
             :param target: shape [batch_size,H,W]
             :return:
             '''
-        n, c, h, w = input.size()
-        target = target.long()
-
         # calculate class weights
         frequency = torch.Tensor([torch.sum(target == i) for i in range(self.num_classes)])
         classWeights = self.compute_class_weights(frequency).to(self.device)
@@ -35,7 +32,9 @@ class FocalLoss(nn.Module):
         # generate classWeights mask
         weightsMask = torch.where(target == 0, classWeights[0], classWeights[1]).squeeze()
 
-        one_hot_label = torch.zeros([n, c, h, w]).to(self.device)
+        one_hot_label = torch.zeros_like(input).to(self.device)
+        # scatter_ require index to be long type
+        target = target.long()
         one_hot_label = one_hot_label.scatter_(1, target, 1)
         p_t = (input * one_hot_label).sum(dim = 1)
         # Consider numerical stability
