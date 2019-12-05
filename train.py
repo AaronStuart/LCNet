@@ -26,9 +26,9 @@ if __name__ == '__main__':
     parser.add_argument("--pretrained_weights", type=str,
                         default='/home/stuart/PycharmProjects/EDANet/weights/EDANet/EDANet_epoch_4_iter_4000.pth')
     parser.add_argument("--train_file", type = str,
-                        default = '/home/stuart/PycharmProjects/EDANet/dataset/train_bdd100k.txt')
+                        default = './dataset/train_bdd100k.txt')
     parser.add_argument("--val_file", type = str,
-                        default = '/home/stuart/PycharmProjects/EDANet/dataset/val_bdd100k.txt')
+                        default = './dataset/val_bdd100k.txt')
     args = parser.parse_args()
     print(args)
 

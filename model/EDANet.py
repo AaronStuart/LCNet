@@ -72,31 +72,43 @@ class EDABlock(nn.Module):
 
         return torch.cat([output, x ], dim = 1)
 
+class ProjectionLayer(nn.Module):
+
+    def __init__(self, input_channels, num_classes):
+        super(ProjectionLayer, self).__init__()
+        self.input_channels = input_channels
+        self.num_classes = num_classes
+
+        self.conv = nn.Conv2d(input_channels, num_classes, kernel_size = 1)
+
+    def forward(self, x):
+        return self.conv(x)
+
 class EDANet(nn.Module):
 
-    def __init__(self, num_classes = 2, init_weights = True):
+    def __init__(self, num_classes, init_weights = True):
         super(EDANet, self).__init__()
         self.num_classes = num_classes
 
-        self.model = torch.nn.ModuleDict({
-            'downsample_1': DownSamplingBlock(3, 15),
-            'downsample_2': DownSamplingBlock(15, 60),
-            'EDABlock_1': EDABlock(60, 1),
-            'EDABlock_2': EDABlock(100, 1),
-            'EDABlock_3': EDABlock(240, 1),
-            'EDABlock_4': EDABlock(520, 2),
-            'EDABlock_5': EDABlock(220, 2),
-            'downsample_3': DownSamplingBlock(260, 130),
-            'EDABlock_6': EDABlock(130, 2),
-            'EDABlock_7': EDABlock(170, 2),
-            'EDABlock_8': EDABlock(210, 4),
-            'EDABlock_9': EDABlock(250, 4),
-            'EDABlock_10': EDABlock(290, 8),
-            'EDABlock_11': EDABlock(330, 8),
-            'EDABlock_12': EDABlock(370, 16),
-            'EDABlock_13': EDABlock(410, 16),
-            'Projection': nn.Conv2d(450, self.num_classes, kernel_size=1)
-        })
+        self.model = nn.Sequential(
+            DownSamplingBlock(3, 15),
+            DownSamplingBlock(15, 60),
+            EDABlock(60, 1),
+            EDABlock(100, 1),
+            EDABlock(140, 1),
+            EDABlock(180, 2),
+            EDABlock(220, 2),
+            DownSamplingBlock(260, 130),
+            EDABlock(130, 2),
+            EDABlock(170, 2),
+            EDABlock(210, 4),
+            EDABlock(250, 4),
+            EDABlock(290, 8),
+            EDABlock(330, 8),
+            EDABlock(370, 16),
+            EDABlock(410, 16),
+            ProjectionLayer(450, self.num_classes)
+        )
 
         if init_weights:
             self._initialize_weights()
@@ -114,48 +126,30 @@ class EDANet(nn.Module):
                 nn.init.normal_(m.weight, 0, 0.01)
                 nn.init.constant_(m.bias, 0)
 
-    def forward(self, input, target):
+    def forward(self, input, target = None):
+        if self.training and target is None:
+            raise ValueError("In training mode, targets should be passed")
 
-        output = self.model['downsample_1'](input)
-        output = self.model['downsample_2'](output)
-        EDABlock_1_output = self.model['EDABlock_1'](output)
-        EDABlock_2_output = self.model['EDABlock_2'](EDABlock_1_output)
-        EDABlock_3_output = self.model['EDABlock_3'](torch.cat([EDABlock_1_output, EDABlock_2_output], dim=1))
-        EDABlock_4_output = self.model['EDABlock_4'](torch.cat([EDABlock_1_output, EDABlock_2_output, EDABlock_3_output], dim=1))
-        EDABlock_5_output = self.model['EDABlock_4'](
-            torch.cat([EDABlock_1_output, EDABlock_2_output, EDABlock_3_output, EDABlock_4_output], dim=1))
-        output = self.model['downsample_2'](EDABlock_5_output)
-        EDABlock_6_output = self.model['EDABlock_6'](output)
-        EDABlock_7_output = self.model['EDABlock_7'](EDABlock_6_output)
-        EDABlock_8_output = self.model['EDABlock_8'](
-            torch.cat([EDABlock_6_output, EDABlock_7_output], dim=1))
-        EDABlock_9_output = self.model['EDABlock_9'](
-            torch.cat([EDABlock_6_output, EDABlock_7_output, EDABlock_8_output], dim=1))
-        EDABlock_10_output = self.model['EDABlock_10'](
-            torch.cat([EDABlock_6_output, EDABlock_7_output, EDABlock_8_output, EDABlock_9_output], dim=1))
-        EDABlock_11_output = self.model['EDABlock_11'](
-            torch.cat([EDABlock_6_output, EDABlock_7_output, EDABlock_8_output, EDABlock_9_output, EDABlock_10_output], dim=1))
-        EDABlock_12_output = self.model['EDABlock_12'](
-            torch.cat([EDABlock_6_output, EDABlock_7_output, EDABlock_8_output, EDABlock_9_output, EDABlock_10_output, EDABlock_11_output], dim=1))
-        EDABlock_13_output = self.model['EDABlock_13'](
-            torch.cat([EDABlock_6_output, EDABlock_7_output, EDABlock_8_output, EDABlock_9_output, EDABlock_10_output, EDABlock_11_output, EDABlock_12_output], dim=1))
-        output = self.model['Projection'](EDABlock_13_output)
-
+        output = self.model(input)
         # Bilinear interpolation x8
         output = F.interpolate(output, scale_factor = 8, mode = 'bilinear', align_corners = True)
-        output = torch.nn.functional.softmax(output, dim = 1)
-        # compute loss
-        loss = FocalLoss(self.num_classes)(output, target)
+        # Softmax
+        output = torch.nn.functional.softmax(output, dim=1)
 
-        return loss, output
+        if self.training:
+            # compute loss
+            loss = FocalLoss(self.num_classes)(output, target)
+            return loss, output
+
+        return output
 
 if __name__ == '__main__':
 
     # for the inference only mode
-    net = EDANet()
+    net = EDANet(num_classes=2)
+    net.eval()
     print(net)
 
     input = Variable(torch.randn(1, 3, 512, 1024))
-    target = Variable(torch.randn(1, 1, 512, 1024))
-    output = net(input, target)
+    output = net(input)
     print(output.size())
