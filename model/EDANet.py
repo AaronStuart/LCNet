@@ -142,13 +142,6 @@ class EDANet(nn.Module):
 if __name__ == '__main__':
 
     net = EDANet(num_classes=2)
-<<<<<<< HEAD
-=======
-    net.eval()
-    print(net)
-
-    # inference
->>>>>>> bc71323d4d40f7a836d5c9663ec03930d231287c
     input = Variable(torch.randn(1, 3, 512, 1024))
     label = Variable(torch.zeros(1, 1, 512, 1024))
 
@@ -161,16 +154,6 @@ if __name__ == '__main__':
     # inference mode
     net.eval()
     output = net(input)
-<<<<<<< HEAD
     print("output_size:", output.size())
 
 
-=======
-    print(output.size())
-
-    # train
-    net.train()
-    target = Variable(torch.zeros(1, 1, 512, 1024))
-    loss, output = net(input, target)
-    print(loss, output.size())
->>>>>>> bc71323d4d40f7a836d5c9663ec03930d231287c
