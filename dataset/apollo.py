@@ -5,10 +5,15 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
+from scripts.apollo_label import labels
+
 
 class ApolloLaneDataset(Dataset):
     def __init__(self, path_file):
         self.path_file = path_file
+
+        # create a map form BGR color to trainId
+        self.color2trainId = {label.color[::-1]: label.trainId for label in labels}
 
         # load file
         self.path_list = []
@@ -23,9 +28,8 @@ class ApolloLaneDataset(Dataset):
         image_path = self.path_list[index][0]
         label_path = self.path_list[index][1]
 
-        # preprocess image
+        ###### preprocess image #######
         image = Image.open(image_path)
-        image.show()
         image_transform = transforms.Compose(
             [
                 transforms.Resize([512, 1024]),
@@ -34,8 +38,19 @@ class ApolloLaneDataset(Dataset):
         )
         image = image_transform(image)
 
-        # read label file
-        label = torch.tensor(cv2.imread(label_path, cv2.IMREAD_UNCHANGED))
+        ###### preprocess image ########
+        origin_label = cv2.imread(label_path, cv2.IMREAD_UNCHANGED)
+        origin_label = cv2.resize(origin_label, (1024, 512), interpolation=cv2.INTER_NEAREST)
+
+        # create a black train_id_label
+        canvas = np.zeros(origin_label.shape[:2], dtype=np.uint8)
+        for bgr_color, trainId in self.color2trainId.items():
+            # map color to trainId
+            mask = (origin_label == bgr_color).all(axis=2)
+            canvas[mask] = trainId
+        canvas = np.expand_dims(canvas, axis = 0)
+
+        label = torch.tensor(canvas)
 
         return {'image': image, 'label': label}
 

@@ -35,7 +35,7 @@ class FocalLoss(nn.Module):
         one_hot_label = torch.zeros_like(input).to(self.device)
         # scatter_ require index to be long type
         target = target.long()
-        one_hot_label = one_hot_label.scatter_(1, target, 1)
+        one_hot_label = one_hot_label.scatter_(dim = 1, index = target, src = torch.tensor(1, device = self.device))
         p_t = (input * one_hot_label).sum(dim = 1)
         # Consider numerical stability
         p_t = torch.clamp(p_t, min = 0.00001, max = 1.0)
