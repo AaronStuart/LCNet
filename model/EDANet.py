@@ -141,7 +141,7 @@ class EDANet(nn.Module):
 
 if __name__ == '__main__':
 
-    net = EDANet(num_classes=2)
+    net = EDANet(num_classes=38)
     input = Variable(torch.randn(1, 3, 512, 1024))
     label = Variable(torch.zeros(1, 1, 512, 1024))
 

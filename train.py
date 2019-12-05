@@ -8,6 +8,7 @@ import visdom
 from torch import optim
 from torch.utils.data import DataLoader
 
+from dataset.apollo import ApolloLaneDataset
 from dataset.bdd100k import BDD100K
 from loss.focal_loss import FocalLoss
 from model.EDANet import EDANet
@@ -15,20 +16,19 @@ from model.EDA_DDB import EDA_DDB
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--num_classes", type=int, default=2)
+    parser.add_argument("--num_classes", type=int, default=38)
     parser.add_argument("--epochs", type = int, default = 100)
-    parser.add_argument("--batch_size", type = int, default = 5)
+    parser.add_argument("--batch_size", type = int, default = 1)
     parser.add_argument("--learning_rate", type = float, default = 0.001)
-    parser.add_argument("--num_threads", type = int, default = 1)
+    parser.add_argument("--num_threads", type = int, default = 8)
     parser.add_argument("--foreground_threshold", type=float, default=0.6,
                         help = "If the predicted probability exceeds this threshold, it will be judged as the foreground.")
     parser.add_argument("--checkpoint_interval", type = int, default = 1, help = "How many epochs are saved once?")
     parser.add_argument("--evaluation_interval", type = int, default = 1, help = "How many epochs are evaluated once?")
     parser.add_argument("--visualize_interval", type=int, default=100, help = "How many iterations are visualized once?")
-    parser.add_argument("--pretrained_weights", type=str,
-                        default='/home/stuart/PycharmProjects/EDANet/weights/EDANet/EDANet_epoch_4_iter_4000.pth')
+    parser.add_argument("--pretrained_weights", type=str)
     parser.add_argument("--train_file", type = str,
-                        default = './dataset/train_bdd100k.txt')
+                        default = './dataset/train_apollo.txt')
     parser.add_argument("--val_file", type = str,
                         default = './dataset/val_bdd100k.txt')
     args = parser.parse_args()
@@ -72,7 +72,8 @@ if __name__ == '__main__':
 
     # Get dataloader
     # trainset = torchvision.datasets.Cityscapes('/media/stuart/data/dataset/cityscapes')
-    trainset = BDD100K(args.train_file)
+    # trainset = BDD100K(args.train_file)
+    trainset = ApolloLaneDataset(args.train_file)
     trainloader = DataLoader(
         trainset,
         batch_size = args.batch_size,
