@@ -150,6 +150,13 @@ if __name__ == '__main__':
     net.eval()
     print(net)
 
+    # inference
     input = Variable(torch.randn(1, 3, 512, 1024))
     output = net(input)
     print(output.size())
+
+    # train
+    net.train()
+    target = Variable(torch.zeros(1, 1, 512, 1024))
+    loss, output = net(input, target)
+    print(loss, output.size())
