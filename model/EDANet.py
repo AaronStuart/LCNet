@@ -86,9 +86,10 @@ class ProjectionLayer(nn.Module):
 
 class EDANet(nn.Module):
 
-    def __init__(self, num_classes, init_weights = True):
+    def __init__(self, num_classes, init_weights = True, device = torch.device("cpu")):
         super(EDANet, self).__init__()
         self.num_classes = num_classes
+        self.device = device
 
         self.model = nn.Sequential(
             DownSamplingBlock(3, 15),
@@ -136,20 +137,23 @@ class EDANet(nn.Module):
         # Softmax
         output = torch.nn.functional.softmax(output, dim=1)
 
-        if self.training:
-            # compute loss
-            loss = FocalLoss(self.num_classes)(output, target)
-            return loss, output
-
         return output
 
 if __name__ == '__main__':
 
-    # for the inference only mode
     net = EDANet(num_classes=2)
-    net.eval()
-    print(net)
-
     input = Variable(torch.randn(1, 3, 512, 1024))
+    label = Variable(torch.zeros(1, 1, 512, 1024))
+
+    # train mode
+    net.train()
+    output = net(input, label)
+    loss = FocalLoss(net.num_classes)(output, label)
+    print("train_loss:", loss)
+
+    # inference mode
+    net.eval()
     output = net(input)
-    print(output.size())
+    print("output_size:", output.size())
+
+

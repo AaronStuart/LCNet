@@ -3,12 +3,13 @@ import torch
 from torch import nn
 
 class FocalLoss(nn.Module):
-    def __init__(self, num_classes, alpha=1, gamma=2, weight=None):
+    def __init__(self, num_classes, alpha=1, gamma=2, weight=None, device = torch.device('cpu')):
         super().__init__()
         self.num_classes = num_classes
         self.alpha = alpha
         self.gamma = gamma
         self.weight = weight
+        self.device = device
         self.ce_fn = nn.CrossEntropyLoss(weight=self.weight, reduction = 'none')
 
     def compute_class_weights(self, frequency):
@@ -29,12 +30,12 @@ class FocalLoss(nn.Module):
 
         # calculate class weights
         frequency = torch.Tensor([torch.sum(target == i) for i in range(self.num_classes)])
-        classWeights = self.compute_class_weights(frequency).cuda()
+        classWeights = self.compute_class_weights(frequency).to(self.device)
 
         # generate classWeights mask
         weightsMask = torch.where(target == 0, classWeights[0], classWeights[1]).squeeze()
 
-        one_hot_label = torch.zeros([n, c, h, w]).cuda()
+        one_hot_label = torch.zeros([n, c, h, w]).to(self.device)
         one_hot_label = one_hot_label.scatter_(1, target, 1)
         p_t = (input * one_hot_label).sum(dim = 1)
         # Consider numerical stability

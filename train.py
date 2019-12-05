@@ -9,11 +9,13 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 from dataset.bdd100k import BDD100K
+from loss.focal_loss import FocalLoss
 from model.EDANet import EDANet
 from model.EDA_DDB import EDA_DDB
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument("--num_classes", type=int, default=2)
     parser.add_argument("--epochs", type = int, default = 100)
     parser.add_argument("--batch_size", type = int, default = 5)
     parser.add_argument("--learning_rate", type = float, default = 0.001)
@@ -61,7 +63,7 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Initial model
-    model = EDANet(num_classes = 2, init_weights = True).to(device)
+    model = EDANet(num_classes = args.num_classes, init_weights = True, device = device).to(device)
     # model = EDA_DDB(num_classes=2, init_weights=True).to(device)
 
     # Start from checkpoints if specified
@@ -94,7 +96,11 @@ if __name__ == '__main__':
             #######  TRAIN MODEL  ########
             ##############################
             optimizer.zero_grad()
-            loss, output = model(input, label)
+            # forward
+            output = model(input, label)
+            # compute loss
+            loss = FocalLoss(args.num_classes, device=device)(output, label)
+            # backward
             loss.backward()
             optimizer.step()
 
