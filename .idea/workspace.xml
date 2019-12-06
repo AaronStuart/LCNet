@@ -2,9 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="6d30b238-85a5-461c-b8b1-31add5685388" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/EDANet.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/EDANet.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dataset/apollo.py" beforeDir="false" afterPath="$PROJECT_DIR$/dataset/apollo.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/apollo_label.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/apollo_label.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/loss/focal_loss.py" beforeDir="false" afterPath="$PROJECT_DIR$/loss/focal_loss.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/train.py" beforeDir="false" afterPath="$PROJECT_DIR$/train.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -196,8 +196,8 @@
     <recent_temporary>
       <list>
         <item itemvalue="Python.train" />
-        <item itemvalue="Python._utils" />
         <item itemvalue="Python.focal_loss" />
+        <item itemvalue="Python._utils" />
         <item itemvalue="Python.apollo" />
         <item itemvalue="Python.create_train_apollo" />
       </list>
@@ -229,7 +229,7 @@
       <workItem from="1575479167022" duration="110000" />
       <workItem from="1575559422279" duration="3466000" />
       <workItem from="1575562902188" duration="1975000" />
-      <workItem from="1575618453948" duration="4506000" />
+      <workItem from="1575618453948" duration="8442000" />
     </task>
     <servers />
   </component>
@@ -249,25 +249,14 @@
       </map>
     </option>
   </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/train.py</url>
-          <line>84</line>
-          <option name="timeStamp" value="73" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
-  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/EDANet$_utils.coverage" NAME="_utils Coverage Results" MODIFIED="1575619621792" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$USER_HOME$/miniconda3/envs/pytorch-gpu/lib/python3.6/site-packages/torch" />
     <SUITE FILE_PATH="coverage/EDANet$EDANet.coverage" NAME="EDANet Coverage Results" MODIFIED="1574430801361" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/model" />
     <SUITE FILE_PATH="coverage/EDANet$apollo.coverage" NAME="apollo Coverage Results" MODIFIED="1575561096222" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dataset" />
     <SUITE FILE_PATH="coverage/EDANet$bdd100k.coverage" NAME="bdd100k Coverage Results" MODIFIED="1573821595861" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dataset" />
-    <SUITE FILE_PATH="coverage/EDANet$focal_loss.coverage" NAME="focal_loss Coverage Results" MODIFIED="1575563265434" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/loss" />
+    <SUITE FILE_PATH="coverage/EDANet$focal_loss.coverage" NAME="focal_loss Coverage Results" MODIFIED="1575631565329" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/loss" />
     <SUITE FILE_PATH="coverage/EDANet$create_train_apollo.coverage" NAME="create_train_apollo Coverage Results" MODIFIED="1575034589685" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/scripts" />
-    <SUITE FILE_PATH="coverage/EDANet$train.coverage" NAME="train Coverage Results" MODIFIED="1575622911265" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/EDANet$train.coverage" NAME="train Coverage Results" MODIFIED="1575632091783" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/EDANet$EDA_DDB.coverage" NAME="EDA-DDB Coverage Results" MODIFIED="1574144592909" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/model" />
   </component>
 </project>

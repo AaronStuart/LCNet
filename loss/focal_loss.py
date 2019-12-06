@@ -30,7 +30,10 @@ class FocalLoss(nn.Module):
         classWeights = self.compute_class_weights(frequency).to(self.device)
 
         # generate classWeights mask
-        weightsMask = torch.where(target == 0, classWeights[0], classWeights[1]).squeeze()
+        weightsMask = torch.zeros_like(target, dtype = torch.float)
+        for i in range(self.num_classes):
+            mask = target == i
+            weightsMask[mask] = classWeights[i]
 
         one_hot_label = torch.zeros_like(input).to(self.device)
         # scatter_ require index to be long type
@@ -41,7 +44,7 @@ class FocalLoss(nn.Module):
         p_t = torch.clamp(p_t, min = 0.00001, max = 1.0)
         focal_loss = -1 * weightsMask * torch.pow((1 - p_t), self.gamma) * torch.log(p_t)
 
-        return focal_loss.mean()
+        return focal_loss.sum()
 
 if __name__ == '__main__':
     predict = np.array([

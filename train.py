@@ -24,7 +24,7 @@ if __name__ == '__main__':
     parser.add_argument("--num_threads", type = int, default = 8)
     parser.add_argument("--foreground_threshold", type=float, default=0.6,
                         help = "If the predicted probability exceeds this threshold, it will be judged as the foreground.")
-    parser.add_argument("--checkpoint_interval", type = int, default = 1, help = "How many epochs are saved once?")
+    parser.add_argument("--checkpoint_interval", type = int, default = 1000, help = "How many iterations are saved once?")
     parser.add_argument("--evaluation_interval", type = int, default = 1, help = "How many epochs are evaluated once?")
     parser.add_argument("--visualize_interval", type=int, default=100, help = "How many iterations are visualized once?")
     parser.add_argument("--pretrained_weights", type=str)
@@ -112,7 +112,7 @@ if __name__ == '__main__':
             ##############################
             output_argmax = torch.argmax(output, axis = 1, keepdim = True)
             # TODO: map trainId to color
-            output_visualize = output_argmax * 5
+            output_visualize = output_argmax * 6
             ##############################
             #####  CALCULATE mIoU   ######
             ##############################
@@ -150,11 +150,12 @@ if __name__ == '__main__':
                     output_visualize,
                     win = train_predict_win
                 )
-        # Save model
-        if epoch != 0 and epoch % args.checkpoint_interval == 0:
-            os.makedirs("weights/%s" % (model.__class__.__name__), exist_ok=True)
-            save_path = 'weights/%s/epoch_%d_iter_%d.pth' % (model.__class__.__name__, epoch, iter)
-            torch.save(model.state_dict(), save_path)
+
+            # Save model
+            if (epoch * len(trainloader) + iter) != 0 and (epoch * len(trainloader) + iter) % args.checkpoint_interval == 0:
+                os.makedirs("weights/%s" % (model.__class__.__name__), exist_ok=True)
+                save_path = 'weights/%s/epoch_%d_iter_%d.pth' % (model.__class__.__name__, epoch, iter)
+                torch.save(model.state_dict(), save_path)
 
 
 
