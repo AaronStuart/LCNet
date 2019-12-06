@@ -5,15 +5,12 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-from scripts.apollo_label import labels
+from scripts.apollo_label import color2trainId
 
 
 class ApolloLaneDataset(Dataset):
     def __init__(self, path_file):
         self.path_file = path_file
-
-        # create a map form BGR color to trainId
-        self.color2trainId = {label.color[::-1]: label.trainId for label in labels}
 
         # load file
         self.path_list = []
@@ -44,7 +41,7 @@ class ApolloLaneDataset(Dataset):
 
         # create a black train_id_label
         canvas = np.zeros(origin_label.shape[:2], dtype=np.uint8)
-        for bgr_color, trainId in self.color2trainId.items():
+        for bgr_color, trainId in color2trainId.items():
             # map color to trainId
             mask = (origin_label == bgr_color).all(axis=2)
             canvas[mask] = trainId
@@ -52,7 +49,9 @@ class ApolloLaneDataset(Dataset):
 
         label = torch.tensor(canvas)
 
-        return {'image': image, 'label': label}
+        label_for_visualize = np.transpose(origin_label, axes = [2, 0, 1])
+
+        return {'image': image, 'label_for_train': label, 'label_for_visualize' : label_for_visualize}
 
 if __name__ == '__main__':
     path_file = '/home/stuart/PycharmProjects/EDANet/dataset/train_apollo.txt'
