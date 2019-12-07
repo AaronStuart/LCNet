@@ -10,10 +10,11 @@ from torch.utils.data import DataLoader
 
 from dataset.apollo import ApolloLaneDataset
 from dataset.bdd100k import BDD100K
+from evaluate.evaluation import mIoU
 from loss.focal_loss import FocalLoss
 from model.EDANet import EDANet
 from model.EDA_DDB import EDA_DDB
-from scripts.apollo_label import trainId2color
+from scripts.apollo_label import trainId2color, trainIdsOfLanes
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -41,10 +42,10 @@ if __name__ == '__main__':
         Y=np.array([0]),
         X=np.array([0]),
     )
-    # train_IoU_win = viz.line(
-    #     Y=np.array([0]),
-    #     X=np.array([0]),
-    # )
+    train_IoU_win = viz.line(
+        Y=np.array([0]),
+        X=np.array([0]),
+    )
     train_input_win = viz.images(
         np.random.randn(args.batch_size, 3, 512, 1024),
         opts = dict(caption = 'train_input')
@@ -104,15 +105,17 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
 
-            log_str = "Epoch %d/%d, iter %d/%d, loss = %f" % (epoch, args.epochs, iter, len(trainloader), loss)
-            print(log_str)
 
             ##############################
             #####  CALCULATE mIoU   ######
             ##############################
-            # i = (label * output).sum()
-            # u = (label + output - label * output).sum()
-            # IoU = i / u if u != 0 else u
+            output_numpy = torch.argmax(output, axis=1, keepdim=True).numpy()
+            label_numpy = label_trainId.numpy()
+
+            result = mIoU(trainIdsOfLanes).evaluate(output_numpy, label_numpy)
+
+            log_str = "Epoch %d/%d, iter %d/%d, loss = %f, mIoU = %f" % (epoch, args.epochs, iter, len(trainloader), loss, result['mIoU_of_batch'])
+            print(log_str)
 
             ##############################
             #######  VISUALIZE   #########
@@ -135,13 +138,13 @@ if __name__ == '__main__':
                     name = 'train_loss',
                     update = 'append'
                 )
-                # viz.line(
-                #     Y=np.array([IoU.detach().cpu()]),
-                #     X=np.array([epoch * len(trainloader) + iter]),
-                #     win=train_IoU_win,
-                #     name='IoU',
-                #     update='append'
-                # )
+                viz.line(
+                    Y=np.array([mIoU]),
+                    X=np.array([epoch * len(trainloader) + iter]),
+                    win=train_IoU_win,
+                    name='IoU',
+                    update='append'
+                )
                 viz.images(
                     input,
                     win = train_input_win
