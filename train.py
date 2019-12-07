@@ -26,7 +26,7 @@ if __name__ == '__main__':
                         help = "If the predicted probability exceeds this threshold, it will be judged as the foreground.")
     parser.add_argument("--checkpoint_interval", type = int, default = 1000, help = "How many iterations are saved once?")
     parser.add_argument("--evaluation_interval", type = int, default = 1, help = "How many epochs are evaluated once?")
-    parser.add_argument("--visualize_interval", type=int, default=100, help = "How many iterations are visualized once?")
+    parser.add_argument("--visualize_interval", type=int, default=200, help = "How many iterations are visualized once?")
     parser.add_argument("--pretrained_weights", type=str)
     parser.add_argument("--train_file", type = str,
                         default = './dataset/train_apollo.txt')
@@ -62,15 +62,18 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Initial model
-    model = EDANet(num_classes = args.num_classes, init_weights = True, device = device).to(device)
-    # model = EDA_DDB(num_classes=2, init_weights=True).to(device)
+    model = EDANet(num_classes = args.num_classes, init_weights = True).to(device)
+
+    # Define loss and optimizer
+    focal_loss = FocalLoss(num_classes=args.num_classes)
+    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
 
     # Start from checkpoints if specified
     if args.pretrained_weights:
         model.load_state_dict(torch.load(args.pretrained_weights))
         print("load ", args.pretrained_weights, " successfully.")
 
-    # Get dataloader
+    # Define dataloader
     trainset = ApolloLaneDataset(args.train_file)
     trainloader = DataLoader(
         trainset,
@@ -81,26 +84,22 @@ if __name__ == '__main__':
         drop_last = True
     )
 
-    # Define loss and optimizer
-    focal_loss = FocalLoss(num_classes = args.num_classes)
-    optimizer = optim.Adam(model.parameters(), lr = args.learning_rate)
-
     model.train()
     for epoch in range(args.epochs):
         for iter, data in enumerate(trainloader):
             ##############################
             #######  GET DATA  ###########
             ##############################
-            input, label, label_for_visualize = data['image'].to(device), data['label_for_train'], data['label_for_visualize']
+            input, label, label_for_visualize = data['image'], data['label_for_train'], data['label_for_visualize']
 
             ##############################
             #######  TRAIN MODEL  ########
             ##############################
             optimizer.zero_grad()
             # forward
-            output = model(input, label)
+            output = model(input.to(device)).cpu()
             # compute loss
-            loss = focal_loss(output.cpu(), label.cpu())
+            loss = focal_loss(output, label)
             # backward
             loss.backward()
             optimizer.step()
@@ -108,12 +107,6 @@ if __name__ == '__main__':
             log_str = "Epoch %d/%d, iter %d/%d, loss = %f" % (epoch, args.epochs, iter, len(trainloader), loss)
             print(log_str)
 
-            ##############################
-            #####  POST PROGRESS   #######
-            ##############################
-            output_argmax = torch.argmax(output, axis = 1, keepdim = True)
-            # TODO: map trainId to color
-            output_visualize = output_argmax * 6
             ##############################
             #####  CALCULATE mIoU   ######
             ##############################
@@ -125,6 +118,16 @@ if __name__ == '__main__':
             #######  VISUALIZE   #########
             ##############################
             if iter != 0 and iter % args.visualize_interval == 0:
+                # postprocess for visualize
+                output_grayscale = torch.argmax(output, axis=1, keepdim=True)
+                # map trainId to color
+                output_for_visualize = torch.zeros_like(label_for_visualize)
+                for batch in range(output_grayscale.shape[0]):
+                    for row in range(output_grayscale.shape[2]):
+                        for col in range(output_grayscale.shape[3]):
+                            trainId = output_grayscale[batch, 0, row, col].item()
+                            output_for_visualize[batch, :, row, col] = torch.tensor(trainId2color[trainId][::-1])
+
                 viz.line(
                     Y = np.array([loss.detach().cpu()]),
                     X = np.array([epoch * len(trainloader) + iter]),
@@ -148,7 +151,7 @@ if __name__ == '__main__':
                     win=train_label_win
                 )
                 viz.images(
-                    output_visualize,
+                    output_for_visualize,
                     win = train_predict_win
                 )
 

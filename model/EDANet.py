@@ -86,10 +86,9 @@ class ProjectionLayer(nn.Module):
 
 class EDANet(nn.Module):
 
-    def __init__(self, num_classes, init_weights = True, device = torch.device("cpu")):
+    def __init__(self, num_classes, init_weights = True):
         super(EDANet, self).__init__()
         self.num_classes = num_classes
-        self.device = device
 
         self.model = nn.Sequential(
             DownSamplingBlock(3, 15),
@@ -127,9 +126,7 @@ class EDANet(nn.Module):
                 nn.init.normal_(m.weight, 0, 0.01)
                 nn.init.constant_(m.bias, 0)
 
-    def forward(self, input, target = None):
-        if self.training and target is None:
-            raise ValueError("In training mode, targets should be passed")
+    def forward(self, input):
 
         output = self.model(input)
         # Bilinear interpolation x8
