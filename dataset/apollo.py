@@ -36,27 +36,31 @@ class ApolloLaneDataset(Dataset):
         image = image_transform(image)
 
         ###### preprocess image ########
-        origin_label = cv2.imread(label_path, cv2.IMREAD_UNCHANGED)
-        origin_label = cv2.resize(origin_label, (1024, 512), interpolation=cv2.INTER_NEAREST)
+        label_bgr = cv2.imread(label_path, cv2.IMREAD_UNCHANGED)
+        label_bgr = cv2.resize(label_bgr, (1024, 512), interpolation=cv2.INTER_NEAREST)
 
         # create a black train_id_label
-        canvas = np.zeros(origin_label.shape[:2], dtype=np.uint8)
+        canvas = np.zeros(label_bgr.shape[:2], dtype=np.uint8)
         for bgr_color, trainId in color2trainId.items():
             # map color to trainId
-            mask = (origin_label == bgr_color).all(axis=2)
+            mask = (label_bgr == bgr_color).all(axis=2)
             canvas[mask] = trainId
         canvas = np.expand_dims(canvas, axis = 0)
 
-        label = torch.tensor(canvas)
+        label_trainId = torch.tensor(canvas)
 
-        label_for_visualize = np.transpose(origin_label, axes = [2, 0, 1])
+        label_bgr = np.transpose(label_bgr, axes = [2, 0, 1])
 
-        return {'image': image, 'label_for_train': label, 'label_for_visualize' : label_for_visualize}
+        return {'input': image, 'label_trainId': label_trainId, 'label_bgr' : label_bgr}
 
 if __name__ == '__main__':
     path_file = '/home/stuart/PycharmProjects/EDANet/dataset/train_apollo.txt'
+    
     dataset = ApolloLaneDataset(path_file)
     print("len of dataset: ", len(dataset))
-    print("image shape: ", dataset[0]['image'].shape)
-    print("label shape: ", dataset[0]['label'].shape)
-    print("label unique values: ", dataset[0]['label'].unique())
+    
+    data = dataset[0]
+    print("input shape: ", data['input'].shape)
+    print("label_trainId shape: ", data['label_trainId'].shape)
+    print("label_bgr shape: ", data['label_bgr'].shape)
+    print("label_for_train unique values: ", data['label_trainId'].unique())
