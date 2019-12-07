@@ -13,17 +13,18 @@ from dataset.bdd100k import BDD100K
 from loss.focal_loss import FocalLoss
 from model.EDANet import EDANet
 from model.EDA_DDB import EDA_DDB
+from scripts.apollo_label import trainId2color
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--num_classes", type=int, default=38)
     parser.add_argument("--epochs", type = int, default = 100)
-    parser.add_argument("--batch_size", type = int, default = 1)
+    parser.add_argument("--batch_size", type = int, default = 4)
     parser.add_argument("--learning_rate", type = float, default = 0.001)
     parser.add_argument("--num_threads", type = int, default = 8)
     parser.add_argument("--foreground_threshold", type=float, default=0.6,
                         help = "If the predicted probability exceeds this threshold, it will be judged as the foreground.")
-    parser.add_argument("--checkpoint_interval", type = int, default = 1, help = "How many epochs are saved once?")
+    parser.add_argument("--checkpoint_interval", type = int, default = 1000, help = "How many iterations are saved once?")
     parser.add_argument("--evaluation_interval", type = int, default = 1, help = "How many epochs are evaluated once?")
     parser.add_argument("--visualize_interval", type=int, default=100, help = "How many iterations are visualized once?")
     parser.add_argument("--pretrained_weights", type=str)
@@ -40,18 +41,16 @@ if __name__ == '__main__':
         Y=np.array([0]),
         X=np.array([0]),
     )
-    train_IoU_win = viz.line(
-        Y=np.array([0]),
-        X=np.array([0]),
-    )
+    # train_IoU_win = viz.line(
+    #     Y=np.array([0]),
+    #     X=np.array([0]),
+    # )
     train_input_win = viz.images(
         np.random.randn(args.batch_size, 3, 512, 1024),
-        nrow = args.batch_size,
         opts = dict(caption = 'train_input')
     )
     train_label_win = viz.images(
-        np.random.randn(args.batch_size, 1, 512, 1024),
-        nrow = args.batch_size,
+        np.random.randn(args.batch_size, 3, 512, 1024),
         opts = dict(caption = 'train_label')
     )
     train_predict_win = viz.images(
@@ -91,7 +90,7 @@ if __name__ == '__main__':
             ##############################
             #######  GET DATA  ###########
             ##############################
-            input, label = data['image'].to(device), data['label'].to(device)
+            input, label, label_for_visualize = data['image'].to(device), data['label_for_train'].to(device), data['label_for_visualize']
 
             ##############################
             #######  TRAIN MODEL  ########
@@ -111,18 +110,15 @@ if __name__ == '__main__':
             ##############################
             #####  POST PROGRESS   #######
             ##############################
-            output = torch.where(
-                output[:, 1, :, :] > args.foreground_threshold,
-                torch.ones_like(output[:, 1, :, :]),
-                torch.zeros_like(output[:, 1, :, :])
-            ).float().unsqueeze(1)
-
+            output_argmax = torch.argmax(output, axis = 1, keepdim = True)
+            # TODO: map trainId to color
+            output_visualize = output_argmax * 6
             ##############################
             #####  CALCULATE mIoU   ######
             ##############################
-            i = (label * output).sum()
-            u = (label + output - label * output).sum()
-            IoU = i / u if u != 0 else u
+            # i = (label * output).sum()
+            # u = (label + output - label * output).sum()
+            # IoU = i / u if u != 0 else u
 
             ##############################
             #######  VISUALIZE   #########
@@ -135,33 +131,31 @@ if __name__ == '__main__':
                     name = 'train_loss',
                     update = 'append'
                 )
-                viz.line(
-                    Y=np.array([IoU.detach().cpu()]),
-                    X=np.array([epoch * len(trainloader) + iter]),
-                    win=train_IoU_win,
-                    name='IoU',
-                    update='append'
-                )
+                # viz.line(
+                #     Y=np.array([IoU.detach().cpu()]),
+                #     X=np.array([epoch * len(trainloader) + iter]),
+                #     win=train_IoU_win,
+                #     name='IoU',
+                #     update='append'
+                # )
                 viz.images(
                     input,
-                    win = train_input_win,
-                    nrow = args.batch_size
+                    win = train_input_win
                 )
                 viz.images(
-                    label,
-                    win=train_label_win,
-                    nrow = args.batch_size
+                    label_for_visualize,
+                    win=train_label_win
                 )
                 viz.images(
-                    output,
-                    win = train_predict_win,
-                    nrow = args.batch_size
+                    output_visualize,
+                    win = train_predict_win
                 )
-        # Save model
-        if epoch != 0 and epoch % args.checkpoint_interval == 0:
-            os.makedirs("weights/%s" % (model.__class__.__name__), exist_ok=True)
-            save_path = 'weights/%s/epoch_%d_iter_%d.pth' % (model.__class__.__name__, epoch, iter)
-            torch.save(model.state_dict(), save_path)
+
+            # Save model
+            if (epoch * len(trainloader) + iter) != 0 and (epoch * len(trainloader) + iter) % args.checkpoint_interval == 0:
+                os.makedirs("weights/%s" % (model.__class__.__name__), exist_ok=True)
+                save_path = 'weights/%s/epoch_%d_iter_%d.pth' % (model.__class__.__name__, epoch, iter)
+                torch.save(model.state_dict(), save_path)
 
 
 
