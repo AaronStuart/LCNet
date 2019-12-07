@@ -68,10 +68,9 @@ if __name__ == '__main__':
     # Start from checkpoints if specified
     if args.pretrained_weights:
         model.load_state_dict(torch.load(args.pretrained_weights))
+        print("load ", args.pretrained_weights, " successfully.")
 
     # Get dataloader
-    # trainset = torchvision.datasets.Cityscapes('/media/stuart/data/dataset/cityscapes')
-    # trainset = BDD100K(args.train_file)
     trainset = ApolloLaneDataset(args.train_file)
     trainloader = DataLoader(
         trainset,
@@ -82,6 +81,8 @@ if __name__ == '__main__':
         drop_last = True
     )
 
+    # Define loss and optimizer
+    focal_loss = FocalLoss(num_classes = args.num_classes)
     optimizer = optim.Adam(model.parameters(), lr = args.learning_rate)
 
     model.train()
@@ -90,7 +91,7 @@ if __name__ == '__main__':
             ##############################
             #######  GET DATA  ###########
             ##############################
-            input, label, label_for_visualize = data['image'].to(device), data['label_for_train'].to(device), data['label_for_visualize']
+            input, label, label_for_visualize = data['image'].to(device), data['label_for_train'], data['label_for_visualize']
 
             ##############################
             #######  TRAIN MODEL  ########
@@ -99,7 +100,7 @@ if __name__ == '__main__':
             # forward
             output = model(input, label)
             # compute loss
-            loss = FocalLoss(args.num_classes, device=device)(output, label)
+            loss = focal_loss(output.cpu(), label.cpu())
             # backward
             loss.backward()
             optimizer.step()

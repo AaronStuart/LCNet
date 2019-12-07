@@ -3,14 +3,11 @@ import torch
 from torch import nn
 
 class FocalLoss(nn.Module):
-    def __init__(self, num_classes, alpha=1, gamma=2, weight=None, device = torch.device('cpu')):
+    def __init__(self, num_classes, alpha=1, gamma=2):
         super().__init__()
         self.num_classes = num_classes
         self.alpha = alpha
         self.gamma = gamma
-        self.weight = weight
-        self.device = device
-        self.ce_fn = nn.CrossEntropyLoss(weight=self.weight, reduction = 'none')
 
     def compute_class_weights(self, frequency):
         classWeights = torch.ones(len(frequency), dtype=torch.float32)
@@ -27,7 +24,7 @@ class FocalLoss(nn.Module):
             '''
         # calculate class weights
         frequency = torch.Tensor([torch.sum(target == i) for i in range(self.num_classes)])
-        classWeights = self.compute_class_weights(frequency).to(self.device)
+        classWeights = self.compute_class_weights(frequency)
 
         # generate classWeights mask
         weightsMask = torch.zeros_like(target, dtype = torch.float)
@@ -35,10 +32,10 @@ class FocalLoss(nn.Module):
             mask = target == i
             weightsMask[mask] = classWeights[i]
 
-        one_hot_label = torch.zeros_like(input).to(self.device)
+        one_hot_label = torch.zeros_like(input)
         # scatter_ require index to be long type
         target = target.long()
-        one_hot_label = one_hot_label.scatter_(dim = 1, index = target, src = torch.tensor(1, device = self.device))
+        one_hot_label = one_hot_label.scatter_(dim = 1, index = target, src = torch.tensor(1))
         p_t = (input * one_hot_label).sum(dim = 1)
         # Consider numerical stability
         p_t = torch.clamp(p_t, min = 0.00001, max = 1.0)
