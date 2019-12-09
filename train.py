@@ -14,20 +14,21 @@ from evaluate.evaluation import mIoU
 from loss.focal_loss import FocalLoss
 from model.EDANet import EDANet
 from model.EDA_DDB import EDA_DDB
+from model.UNet import UNet
 from scripts.apollo_label import trainId2color, trainIdsOfLanes
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--num_classes", type=int, default=38)
     parser.add_argument("--epochs", type = int, default = 100)
-    parser.add_argument("--batch_size", type = int, default = 4)
+    parser.add_argument("--batch_size", type = int, default = 1)
     parser.add_argument("--learning_rate", type = float, default = 0.001)
     parser.add_argument("--num_threads", type = int, default = 8)
     parser.add_argument("--foreground_threshold", type=float, default=0.6,
                         help = "If the predicted probability exceeds this threshold, it will be judged as the foreground.")
     parser.add_argument("--checkpoint_interval", type = int, default = 1000, help = "How many iterations are saved once?")
     parser.add_argument("--evaluation_interval", type = int, default = 1, help = "How many epochs are evaluated once?")
-    parser.add_argument("--visualize_interval", type=int, default=1000, help = "How many iterations are visualized once?")
+    parser.add_argument("--visualize_interval", type=int, default=100, help = "How many iterations are visualized once?")
     parser.add_argument("--pretrained_weights", type=str)
     parser.add_argument("--train_file", type = str,
                         default = './dataset/train_apollo.txt')
@@ -63,7 +64,8 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Initial model
-    model = EDANet(num_classes = args.num_classes, init_weights = True).to(device)
+    # model = EDANet(num_classes = args.num_classes, init_weights = True).to(device)
+    model = UNet(in_channels = 3, num_classes = args.num_classes, bilinear = True, init_weights=True).to(device)
 
     # Define loss and optimizer
     focal_loss = FocalLoss(num_classes=args.num_classes)
@@ -139,7 +141,7 @@ if __name__ == '__main__':
                     update = 'append'
                 )
                 viz.line(
-                    Y=np.array([mIoU]),
+                    Y=np.array([result['mIoU_of_batch']]),
                     X=np.array([epoch * len(trainloader) + iter]),
                     win=train_IoU_win,
                     name='IoU',
