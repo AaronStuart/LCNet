@@ -36,8 +36,11 @@ class ApolloLaneDataset(Dataset):
         image = image_transform(image)
 
         ###### preprocess image ########
-        label_bgr = cv2.imread(label_path, cv2.IMREAD_UNCHANGED)
-        label_bgr = cv2.resize(label_bgr, (1024, 512), interpolation=cv2.INTER_NEAREST)
+        try:
+            label_bgr = cv2.imread(label_path, cv2.IMREAD_UNCHANGED)
+            label_bgr = cv2.resize(label_bgr, (1024, 512), interpolation=cv2.INTER_NEAREST)
+        except cv2.error:
+            print(label_path, 'resize error')
 
         # create a black train_id_label
         canvas = np.zeros(label_bgr.shape[:2], dtype=np.uint8)

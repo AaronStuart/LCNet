@@ -72,9 +72,12 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
 
     # Start from checkpoints if specified
+    begin_epoch, begin_iter = 0, 0
     if args.pretrained_weights:
         model.load_state_dict(torch.load(args.pretrained_weights))
         print("load", args.pretrained_weights, "successfully.")
+        begin_epoch = int(args.pretrained_weights.split('_')[1])
+        begin_iter = int(args.pretrained_weights.split('_')[-1].split('.')[0]) + 1
 
     # Define dataloader
     trainset = ApolloLaneDataset(args.train_file)
@@ -88,8 +91,8 @@ if __name__ == '__main__':
     )
 
     model.train()
-    for epoch in range(args.epochs):
-        for iter, data in enumerate(trainloader):
+    for epoch in range(begin_epoch, args.epochs):
+        for iter, data in enumerate(trainloader, begin_iter):
             ##############################
             #######  GET DATA  ###########
             ##############################
