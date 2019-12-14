@@ -36,7 +36,6 @@ class ApolloLaneDataset(Dataset):
         image = image_transform(image)
 
         ###### preprocess image ########
-        print('begin process ', label_path)
         label_bgr = cv2.imread(label_path, cv2.IMREAD_UNCHANGED)
         label_bgr = cv2.resize(label_bgr, (1024, 512), interpolation=cv2.INTER_NEAREST)
 
@@ -49,9 +48,7 @@ class ApolloLaneDataset(Dataset):
         canvas = np.expand_dims(canvas, axis = 0)
 
         label_trainId = torch.tensor(canvas)
-
         label_bgr = np.transpose(label_bgr, axes = [2, 0, 1])
-        print('finish process ', label_path)
 
         return {'input': image, 'label_trainId': label_trainId, 'label_bgr' : label_bgr}
 

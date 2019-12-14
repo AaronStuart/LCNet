@@ -127,14 +127,16 @@ if __name__ == '__main__':
             ##############################
             if iter != 0 and iter % args.visualize_interval == 0:
                 # postprocess for visualize
-                output_grayscale = torch.argmax(output, axis=1, keepdim=True)
+                output_grayscale = torch.argmax(output, axis=1)
+
                 # map trainId to color
                 output_bgr = torch.zeros_like(label_bgr)
-                for batch in range(output_grayscale.shape[0]):
-                    for row in range(output_grayscale.shape[2]):
-                        for col in range(output_grayscale.shape[3]):
-                            trainId = output_grayscale[batch, 0, row, col].item()
-                            output_bgr[batch, :, row, col] = torch.tensor(trainId2color[trainId][::-1])
+                for trainId, rgb in trainId2color.items():
+                    bgr = rgb[::-1]
+                    mask = output_grayscale == trainId
+                    output_bgr[:, 0, :, :][mask] = bgr[0]
+                    output_bgr[:, 1, :, :][mask] = bgr[1]
+                    output_bgr[:, 2, :, :][mask] = bgr[2]
 
                 viz.line(
                     Y = np.array([loss.detach().cpu()]),
