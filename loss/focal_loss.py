@@ -41,7 +41,7 @@ class FocalLoss(nn.Module):
         p_t = torch.clamp(p_t, min = 0.00001, max = 1.0)
         focal_loss = -1 * weightsMask * torch.pow((1 - p_t), self.gamma) * torch.log(p_t)
 
-        return focal_loss.sum()
+        return focal_loss.mean()
 
 if __name__ == '__main__':
     predict = np.array([
