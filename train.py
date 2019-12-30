@@ -28,7 +28,7 @@ if __name__ == '__main__':
                         help = "If the predicted probability exceeds this threshold, it will be judged as the foreground.")
     parser.add_argument("--checkpoint_interval", type = int, default = 1000, help = "How many iterations are saved once?")
     parser.add_argument("--evaluation_interval", type = int, default = 1, help = "How many epochs are evaluated once?")
-    parser.add_argument("--visualize_interval", type=int, default=100, help = "How many iterations are visualized once?")
+    parser.add_argument("--visualize_interval", type=int, default=50, help = "How many iterations are visualized once?")
     parser.add_argument("--pretrained_weights", type=str)
     parser.add_argument("--train_file", type = str,
                         default = './dataset/train_apollo.txt')
@@ -65,7 +65,8 @@ if __name__ == '__main__':
 
     # Initial model
     # model = EDANet(num_classes = args.num_classes, init_weights = True).to(device)
-    model = UNet(in_channels = 3, num_classes = args.num_classes, bilinear = True, init_weights=True).to(device)
+    model = torchvision.models.segmentation.deeplabv3_resnet50(num_classes = args.num_classes).to(device)
+    # model = UNet(in_channels = 3, num_classes = args.num_classes, bilinear = True, init_weights=True).to(device)
 
     # Define loss and optimizer
     focal_loss = FocalLoss(num_classes=args.num_classes)
@@ -103,7 +104,8 @@ if __name__ == '__main__':
             ##############################
             optimizer.zero_grad()
             # forward
-            output = model(input.to(device)).cpu()
+            output = model(input.to(device))
+            output = output.cpu()
             # compute loss
             loss = focal_loss(output, label_trainId)
             # backward
