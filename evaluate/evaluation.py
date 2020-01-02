@@ -3,7 +3,7 @@ from abc import abstractmethod
 import numpy as np
 import torch
 
-from scripts.apollo_label import trainId2name
+from scripts.apollo_label import trainId2name, valid_trainIds
 
 
 class Evaluation:
@@ -30,7 +30,7 @@ class EvaluationOnDataset(Evaluation):
         :param label: ndarray of shape [H, W]
         :return: a dict contain IoU of each class
         """
-        for train_id in self.trainIds:
+        for train_id in valid_trainIds:
             label_mask = label == train_id
             if not label_mask.any():
                 continue
@@ -44,9 +44,9 @@ class EvaluationOnDataset(Evaluation):
             # init class, if does not exist
             if label_name not in self.final_result.keys():
                 self.final_result[label_name] = {}
-                self.final_result[label_name]['TP'] = 0
-                self.final_result[label_name]['FP'] = 0
-                self.final_result[label_name]['FN'] = 0
+                self.final_result[label_name]['TP'] = 0.0
+                self.final_result[label_name]['FP'] = 0.0
+                self.final_result[label_name]['FN'] = 0.0
 
             # accumulate result
             self.final_result[label_name]['TP'] += TP
@@ -68,18 +68,32 @@ class EvaluationOnDataset(Evaluation):
             self.accumulateOnImage(predict[batch], label[batch])
 
     def evaluate(self):
+        print('Totally %d images' % len(self.dataloader))
+        with torch.no_grad():
+            for iter, data in enumerate(self.dataloader):
+                # get data
+                input, label_trainId = data['input'], data['label_trainId']
+                label_shape = [label_trainId.shape[-2], label_trainId.shape[-1]]
 
-        for iter, data in enumerate(self.dataloader):
-            # get data
-            input, label_trainId = data['input'], data['label_trainId']
+                # forward
+                output = self.model(input.to(self.device)).cpu()
 
-            # forward
-            output = self.model(input.to(self.device)).cpu()
+                # resize to origin size
+                output = torch.nn.functional.interpolate(output, label_shape, mode='bilinear')
 
-            # accumulate on batch
-            output_numpy = torch.argmax(output, axis=1, keepdim=True).numpy()
-            label_numpy = label_trainId.numpy()
-            self.accumulateOnBatch(output_numpy, label_numpy)
+                # accumulate on batch
+                output = torch.argmax(output, axis=1, keepdim=True).numpy()
+                label = label_trainId.numpy()
+                self.accumulateOnBatch(output, label)
+                print('image %d processed successful.' % iter * input.shape[0])
+
+        # calculate IoU for each class
+        for class_name, class_dict in self.final_result.items():
+            class_tp = class_dict['TP']
+            class_fp = class_dict['FP']
+            class_fn = class_dict['FN']
+            class_IoU = class_tp / (class_tp + class_fp + class_fn)
+            self.final_result[class_name]['IoU'] = class_IoU
 
         return self.final_result
 

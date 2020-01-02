@@ -10,9 +10,10 @@ from model.UNet import UNet
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--num_classes", type=int, default=38)
+parser.add_argument("--batch_size", type=int, default=1)
 parser.add_argument("--num_threads", type=int, default=8)
 parser.add_argument("--pretrained_weights", type=str)
-parser.add_argument("--val_file", type=str, default='./dataset/train_apollo.txt')
+parser.add_argument("--val_file", type=str, default='./dataset/val_apollo.txt')
 args = parser.parse_args()
 
 if __name__ == '__main__':
@@ -27,7 +28,7 @@ if __name__ == '__main__':
     print("load", args.pretrained_weights, "successfully.")
 
     # Get dataloader
-    val_dataset = ApolloLaneDataset(args.val_file)
+    val_dataset = ApolloLaneDataset(args.val_file, is_train=False)
     val_dataloader = DataLoader(
         val_dataset,
         batch_size=args.batch_size,
@@ -43,4 +44,4 @@ if __name__ == '__main__':
 
     # output result to json file
     with open('eval_result.json', 'w') as json_file:
-        json.dump(result, json_file)
+        json.dump(result, json_file, indent=4)
