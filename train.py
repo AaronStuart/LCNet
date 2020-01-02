@@ -27,8 +27,13 @@ if __name__ == '__main__':
     parser.add_argument("--foreground_threshold", type=float, default=0.6,
                         help = "If the predicted probability exceeds this threshold, it will be judged as the foreground.")
     parser.add_argument("--checkpoint_interval", type = int, default = 1000, help = "How many iterations are saved once?")
+<<<<<<< HEAD
     parser.add_argument("--evaluation_interval", type = int, default = 1, help = "How many epochs are evaluated once?")
     parser.add_argument("--visualize_interval", type=int, default=50, help = "How many iterations are visualized once?")
+=======
+    parser.add_argument("--evaluation_interval", type = int, default = 10, help = "How many epochs are evaluated once?")
+    parser.add_argument("--visualize_interval", type=int, default=10, help = "How many iterations are visualized once?")
+>>>>>>> add_evaluate
     parser.add_argument("--pretrained_weights", type=str)
     parser.add_argument("--train_file", type = str,
                         default = './dataset/train_apollo.txt')
@@ -81,7 +86,7 @@ if __name__ == '__main__':
         begin_iter = int(args.pretrained_weights.split('_')[-1].split('.')[0]) + 1
 
     # Define dataloader
-    trainset = ApolloLaneDataset(args.train_file)
+    trainset = ApolloLaneDataset(args.train_file, is_train=True)
     trainloader = DataLoader(
         trainset,
         batch_size = args.batch_size,
@@ -119,7 +124,7 @@ if __name__ == '__main__':
             output_numpy = torch.argmax(output, axis=1, keepdim=True).numpy()
             label_numpy = label_trainId.numpy()
 
-            result = mIoU(trainIdsOfLanes).evaluate(output_numpy, label_numpy)
+            result = mIoU(trainIdsOfLanes).evaluateOnBatch(output_numpy, label_numpy)
 
             log_str = "Epoch %d/%d, iter %d/%d, loss = %f, mIoU = %f" % (epoch, args.epochs, iter, len(trainloader), loss, result['mIoU_of_batch'])
             print(log_str)

@@ -9,8 +9,9 @@ from scripts.apollo_label import color2trainId
 
 
 class ApolloLaneDataset(Dataset):
-    def __init__(self, path_file):
+    def __init__(self, path_file, is_train):
         self.path_file = path_file
+        self.is_train = is_train
 
         # load file
         self.path_list = []
@@ -37,7 +38,8 @@ class ApolloLaneDataset(Dataset):
 
         ###### preprocess image ########
         label_bgr = cv2.imread(label_path, cv2.IMREAD_UNCHANGED)
-        label_bgr = cv2.resize(label_bgr, (1024, 512), interpolation=cv2.INTER_NEAREST)
+        if self.is_train:
+            label_bgr = cv2.resize(label_bgr, (1024, 512), interpolation=cv2.INTER_NEAREST)
 
         # create a black train_id_label
         canvas = np.zeros(label_bgr.shape[:2], dtype=np.uint8)
