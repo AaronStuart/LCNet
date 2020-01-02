@@ -117,7 +117,7 @@ if __name__ == '__main__':
             output_numpy = torch.argmax(output, axis=1, keepdim=True).numpy()
             label_numpy = label_trainId.numpy()
 
-            result = mIoU(trainIdsOfLanes).evaluate(output_numpy, label_numpy)
+            result = mIoU(trainIdsOfLanes).evaluateOnBatch(output_numpy, label_numpy)
 
             log_str = "Epoch %d/%d, iter %d/%d, loss = %f, mIoU = %f" % (epoch, args.epochs, iter, len(trainloader), loss, result['mIoU_of_batch'])
             print(log_str)
