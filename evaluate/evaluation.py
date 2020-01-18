@@ -3,7 +3,7 @@ from abc import abstractmethod
 import numpy as np
 import torch
 
-from scripts.apollo_label import trainId2name, valid_trainIds
+from scripts.apollo_label import labels, trainId2name, valid_trainIds
 
 
 class Evaluation:
@@ -21,7 +21,16 @@ class EvaluationOnDataset(Evaluation):
         self.device = device
         self.model = model.to(device).eval()
         self.dataloader = dataloader
+        self.eval_trainIds = self.getEvalTrainIds()
         self.final_result = {}
+
+    def getEvalTrainIds(self):
+        result = []
+        for label in labels:
+            if label.ignoreInEval == True:
+                continue
+            result.append(label.trainId)
+        return result
 
     def accumulateOnImage(self, predict, label):
         """
@@ -30,7 +39,7 @@ class EvaluationOnDataset(Evaluation):
         :param label: ndarray of shape [H, W]
         :return: a dict contain IoU of each class
         """
-        for train_id in valid_trainIds:
+        for train_id in self.eval_trainIds:
             label_mask = label == train_id
             if not label_mask.any():
                 continue

@@ -120,6 +120,8 @@ trainIdsOfLanes = [label.trainId for label in labels if label.categoryId == 1]
 trainId2name    = { label.trainId : label.name for label in reversed(labels) }
 # trainIds
 valid_trainIds = [label.trainId for label in labels if label.trainId not in [0, 36, 37]]
+# name to color
+name2color = {label.name : label.color for label in labels}
 
 # category to list of label objects
 category2labels = {}

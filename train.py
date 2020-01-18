@@ -27,13 +27,10 @@ if __name__ == '__main__':
     parser.add_argument("--foreground_threshold", type=float, default=0.6,
                         help = "If the predicted probability exceeds this threshold, it will be judged as the foreground.")
     parser.add_argument("--checkpoint_interval", type = int, default = 1000, help = "How many iterations are saved once?")
-<<<<<<< HEAD
     parser.add_argument("--evaluation_interval", type = int, default = 1, help = "How many epochs are evaluated once?")
     parser.add_argument("--visualize_interval", type=int, default=50, help = "How many iterations are visualized once?")
-=======
     parser.add_argument("--evaluation_interval", type = int, default = 10, help = "How many epochs are evaluated once?")
     parser.add_argument("--visualize_interval", type=int, default=10, help = "How many iterations are visualized once?")
->>>>>>> add_evaluate
     parser.add_argument("--pretrained_weights", type=str)
     parser.add_argument("--train_file", type = str,
                         default = './dataset/train_apollo.txt')

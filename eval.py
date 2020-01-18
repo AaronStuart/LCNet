@@ -34,8 +34,7 @@ if __name__ == '__main__':
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=args.num_threads,
-        pin_memory=True,
-        drop_last=True
+        pin_memory=True
     )
 
     # Evaluate on dataset
