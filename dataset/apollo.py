@@ -1,3 +1,5 @@
+import os
+
 import cv2
 import torch
 import numpy as np
@@ -9,7 +11,8 @@ from scripts.apollo_label import color2trainId
 
 
 class ApolloLaneDataset(Dataset):
-    def __init__(self, path_file, is_train):
+    def __init__(self, root_dir, path_file, is_train):
+        self.root_dir = root_dir
         self.path_file = path_file
         self.is_train = is_train
 
@@ -23,8 +26,8 @@ class ApolloLaneDataset(Dataset):
         return len(self.path_list)
 
     def __getitem__(self, index):
-        image_path = self.path_list[index][0]
-        label_path = self.path_list[index][1]
+        image_path = os.path.join(self.root_dir, self.path_list[index][0])
+        label_path = os.path.join(self.root_dir, self.path_list[index][1])
 
         ###### preprocess image #######
         image = Image.open(image_path)

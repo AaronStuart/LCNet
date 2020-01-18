@@ -25,13 +25,6 @@ class TrainValSplit(object):
         # all samples
         self.image_label_pairs = self.getImageLabelPairs(root_dir)
 
-        # the final split result
-        self.train_set = set()
-        self.val_set = set()
-
-        # auxliary dict
-        self.split_dict = self.getSplitDict()
-
         # Results in ascending order of pixels
         self.frequency_ascending_order = (
             'a_n_lu',
@@ -65,6 +58,13 @@ class TrainValSplit(object):
             'void'
         )
 
+        # the final split result
+        self.train_set = set()
+        self.val_set = set()
+
+        # auxliary dict
+        self.split_dict = self.getSplitDict()
+
     def getImageLabelPairs(self, root_dir):
         image_dirs = [
             os.path.join(root_dir, 'ColorImage_road02', 'ColorImage'),
@@ -96,6 +96,8 @@ class TrainValSplit(object):
                 bgr = name2color[label_name][::-1]
                 # If it contains pixels of this class
                 if np.any(np.all(label == bgr, axis = 2)):
+                    image_path = image_path.replace(self.root_dir + os.sep, '')
+                    label_path = label_path.replace(self.root_dir + os.sep, '')
                     split_dict[label_name].add((image_path, label_path))
                     break
 
