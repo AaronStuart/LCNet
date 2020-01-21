@@ -1,8 +1,9 @@
+import json
 import os
 import random
 
 import cv2 as cv
-import numpy as np
+import cupy as cp
 from tqdm import tqdm
 
 from scripts.apollo_label import labels, name2color
@@ -59,8 +60,8 @@ class TrainValSplit(object):
         )
 
         # the final split result
-        self.train_set = set()
-        self.val_set = set()
+        self.train_set = []
+        self.val_set = []
 
         # auxliary dict
         self.split_dict = self.getSplitDict()
@@ -86,31 +87,51 @@ class TrainValSplit(object):
 
     def getSplitDict(self):
         # define initial split dict
-        split_dict = {label.name: set() for label in labels}
+        split_dict = {label.name: [] for label in labels}
+        processed = set()
+
+        # restore checkpoint
+        split_dict = json.load(open('../output/split.json', 'r'))
+        processed = set(json.load(open('../output/processed.json', 'r')))
 
         # split by class
         for image_path, label_path in tqdm(self.image_label_pairs):
+            # skip processed image
+            if image_path in processed:
+                continue
+
             # read label
+            print('Begin to process %s' % image_path)
             label = cv.imread(label_path)
             for label_name in self.frequency_ascending_order:
                 bgr = name2color[label_name][::-1]
                 # If it contains pixels of this class
-                if np.any(np.all(label == bgr, axis = 2)):
-                    image_path = image_path.replace(self.root_dir + os.sep, '')
-                    label_path = label_path.replace(self.root_dir + os.sep, '')
-                    split_dict[label_name].add((image_path, label_path))
+                if cp.any(cp.all(cp.array(label == bgr), axis = 2)):
+                    relative_image_path = image_path.replace(self.root_dir + os.sep, '')
+                    relative_label_path = label_path.replace(self.root_dir + os.sep, '')
+                    split_dict[label_name].append((relative_image_path, relative_label_path))
+                    processed.add(image_path)
                     break
+            print('Process %s finished' % image_path)
+
+            # store processed result
+            with open('../output/processed.json', 'w') as json_file:
+                json.dump(list(processed), json_file, indent = 4)
+            with open('../output/split.json', 'w') as json_file:
+                json.dump(split_dict, json_file, indent = 4)
 
         return split_dict
             
     def trainValSplit(self):
-        for label_name, label_set in self.split_dict.items():
-            for path_tuple in label_set:
+        for label_name, label_list in self.split_dict.items():
+            if not label_list:
+                continue
+            for path_tuple in label_list:
                 rand_num = random.random()
                 if rand_num < self.val_ratio:
-                    self.val_set.add(path_tuple)
+                    self.val_set.append(path_tuple)
                 else:
-                    self.train_set.add(path_tuple)
+                    self.train_set.append(path_tuple)
 
     def outputTxt(self):
         # write to train file
@@ -131,7 +152,7 @@ if __name__ == '__main__':
 
     TrainValSplit(
         root_dir = '/media/stuart/data/dataset/Apollo/Lane_Detection',
-        val_ratio = 0.3,
-        train_file = 'train_apollo.txt',
-        val_file = 'val_apollo.txt'
+        val_ratio = 0.1,
+        train_file = '../dataset/train_apollo.txt',
+        val_file = '../dataset/val_apollo.txt'
     ).run()
