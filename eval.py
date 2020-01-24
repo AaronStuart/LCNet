@@ -1,5 +1,8 @@
 import argparse
 import json
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
 
 import torch
 from torch.utils.data import DataLoader
@@ -16,6 +19,9 @@ parser.add_argument("--pretrained_weights", type=str)
 parser.add_argument("--val_file", type=str, default='./dataset/val_apollo.txt')
 args = parser.parse_args()
 
+
+
+
 if __name__ == '__main__':
     # Get device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -28,7 +34,11 @@ if __name__ == '__main__':
     print("load", args.pretrained_weights, "successfully.")
 
     # Get dataloader
-    val_dataset = ApolloLaneDataset(args.val_file, is_train=False)
+    val_dataset = ApolloLaneDataset(
+        root_dir = "/media/stuart/data/dataset/Apollo/Lane_Detection",
+        path_file = args.val_file,
+        is_train = False
+    )
     val_dataloader = DataLoader(
         val_dataset,
         batch_size=args.batch_size,
@@ -41,6 +51,9 @@ if __name__ == '__main__':
     eval = EvaluationOnDataset(model=model, device=device, dataloader=val_dataloader)
     result = eval.evaluate()
 
+
     # output result to json file
-    with open('eval_result.json', 'w') as json_file:
+    with open('%s.json' % model.__class__.__name__, 'w') as json_file:
         json.dump(result, json_file, indent=4)
+
+    single_json_visiualize('output/UNet/UNet.json' % (model.__class__.__name__, model.__class__.__name__))

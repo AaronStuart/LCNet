@@ -9,11 +9,8 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 from dataset.apollo import ApolloLaneDataset
-from dataset.bdd100k import BDD100K
 from evaluate.evaluation import mIoU
 from loss.focal_loss import FocalLoss
-from model.EDANet import EDANet
-from model.EDA_DDB import EDA_DDB
 from model.UNet import UNet
 from scripts.apollo_label import trainId2color, trainIdsOfLanes
 
@@ -24,28 +21,16 @@ if __name__ == '__main__':
     parser.add_argument("--batch_size", type = int, default = 1)
     parser.add_argument("--learning_rate", type = float, default = 0.001)
     parser.add_argument("--num_threads", type = int, default = 8)
-    parser.add_argument("--foreground_threshold", type=float, default=0.6,
-                        help = "If the predicted probability exceeds this threshold, it will be judged as the foreground.")
-    parser.add_argument("--checkpoint_interval", type = int, default = 1000, help = "How many iterations are saved once?")
-    parser.add_argument("--evaluation_interval", type = int, default = 1, help = "How many epochs are evaluated once?")
-    parser.add_argument("--visualize_interval", type=int, default=50, help = "How many iterations are visualized once?")
-    parser.add_argument("--evaluation_interval", type = int, default = 10, help = "How many epochs are evaluated once?")
-    parser.add_argument("--visualize_interval", type=int, default=10, help = "How many iterations are visualized once?")
     parser.add_argument("--pretrained_weights", type=str)
-    parser.add_argument("--train_file", type = str,
-                        default = './dataset/train_apollo.txt')
-    parser.add_argument("--val_file", type = str,
-                        default = './dataset/val_bdd100k.txt')
+    parser.add_argument("--checkpoint_interval", type = int, default = 1000, help = "How many iterations are saved once?")
+    parser.add_argument("--visualize_interval", type=int, default=10, help = "How many iterations are visualized once?")
+    parser.add_argument("--train_file", type = str, default = './dataset/train_apollo.txt')
     args = parser.parse_args()
     print(args)
 
     # Visualize
     viz = visdom.Visdom()
     train_loss_win = viz.line(
-        Y=np.array([0]),
-        X=np.array([0]),
-    )
-    train_IoU_win = viz.line(
         Y=np.array([0]),
         X=np.array([0]),
     )
@@ -67,8 +52,8 @@ if __name__ == '__main__':
 
     # Initial model
     # model = EDANet(num_classes = args.num_classes, init_weights = True).to(device)
-    model = torchvision.models.segmentation.deeplabv3_resnet50(num_classes = args.num_classes).to(device)
-    # model = UNet(in_channels = 3, num_classes = args.num_classes, bilinear = True, init_weights=True).to(device)
+    # model = torchvision.models.segmentation.deeplabv3_resnet50(num_classes = args.num_classes).to(device)
+    model = UNet(in_channels = 3, num_classes = args.num_classes, bilinear = True, init_weights=True).to(device)
 
     # Define loss and optimizer
     focal_loss = FocalLoss(num_classes=args.num_classes)
@@ -83,7 +68,11 @@ if __name__ == '__main__':
         begin_iter = int(args.pretrained_weights.split('_')[-1].split('.')[0]) + 1
 
     # Define dataloader
-    trainset = ApolloLaneDataset(args.train_file, is_train=True)
+    trainset = ApolloLaneDataset(
+        root_dir = "/media/stuart/data/dataset/Apollo/Lane_Detection",
+        path_file = args.train_file,
+        is_train=True
+    )
     trainloader = DataLoader(
         trainset,
         batch_size = args.batch_size,
@@ -96,41 +85,24 @@ if __name__ == '__main__':
     model.train()
     for epoch in range(begin_epoch, args.epochs):
         for iter, data in enumerate(trainloader, begin_iter):
-            ##############################
-            #######  GET DATA  ###########
-            ##############################
+            # get data
             input, label_trainId, label_bgr = data['input'], data['label_trainId'], data['label_bgr']
 
-            ##############################
-            #######  TRAIN MODEL  ########
-            ##############################
+            # train model
             optimizer.zero_grad()
-            # forward
-            output = model(input.to(device))
-            output = output.cpu()
-            # compute loss
+            output = model(input.to(device)).cpu()
             loss = focal_loss(output, label_trainId)
-            # backward
+
+            # print log
+            log_str = "Epoch %d/%d, iter %d/%d, loss = %f" % (epoch, args.epochs, iter, len(trainloader), loss)
+            print(log_str)
+
+            # update weights
             loss.backward()
             optimizer.step()
 
-
-            ##############################
-            #####  CALCULATE mIoU   ######
-            ##############################
-            output_numpy = torch.argmax(output, axis=1, keepdim=True).numpy()
-            label_numpy = label_trainId.numpy()
-
-            result = mIoU(trainIdsOfLanes).evaluateOnBatch(output_numpy, label_numpy)
-
-            log_str = "Epoch %d/%d, iter %d/%d, loss = %f, mIoU = %f" % (epoch, args.epochs, iter, len(trainloader), loss, result['mIoU_of_batch'])
-            print(log_str)
-
-            ##############################
-            #######  VISUALIZE   #########
-            ##############################
-            if iter != 0 and iter % args.visualize_interval == 0:
-                # postprocess for visualize
+            # visualize train process
+            if iter % args.visualize_interval == 0:
                 output_grayscale = torch.argmax(output, axis=1)
 
                 # map trainId to color
@@ -148,13 +120,6 @@ if __name__ == '__main__':
                     win = train_loss_win,
                     name = 'train_loss',
                     update = 'append'
-                )
-                viz.line(
-                    Y=np.array([result['mIoU_of_batch']]),
-                    X=np.array([epoch * len(trainloader) + iter]),
-                    win=train_IoU_win,
-                    name='IoU',
-                    update='append'
                 )
                 viz.images(
                     input,

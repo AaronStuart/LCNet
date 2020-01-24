@@ -38,7 +38,7 @@ class FocalLoss(nn.Module):
         one_hot_label = one_hot_label.scatter_(dim = 1, index = target, src = torch.tensor(1))
         p_t = (input * one_hot_label).sum(dim = 1)
         # Consider numerical stability
-        p_t = torch.clamp(p_t, min = 0.00001, max = 1.0)
+        p_t = torch.clamp(p_t, min = 1e-8, max = 1.0)
         focal_loss = -1 * weightsMask * torch.pow((1 - p_t), self.gamma) * torch.log(p_t)
 
         return focal_loss.mean()

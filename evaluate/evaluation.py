@@ -3,7 +3,7 @@ from abc import abstractmethod
 import numpy as np
 import torch
 
-from scripts.apollo_label import labels, trainId2name, valid_trainIds
+from scripts.apollo_label import labels, trainId2name
 
 
 class Evaluation:

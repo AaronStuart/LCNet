@@ -111,7 +111,7 @@ id2label        = { label.id      : label for label in labels           }
 # trainId to label object
 trainId2label   = { label.trainId : label for label in reversed(labels) }
 # color to trainId
-color2trainId   = {label.color[::-1]: label.trainId for label in labels}
+color2trainId   = {label.color : label.trainId for label in labels}
 # trainId to color
 trainId2color   = {label.trainId : label.color for label in labels}
 # trainIds of lanes
@@ -122,6 +122,8 @@ trainId2name    = { label.trainId : label.name for label in reversed(labels) }
 valid_trainIds = [label.trainId for label in labels if label.trainId not in [0, 36, 37]]
 # name to color
 name2color = {label.name : label.color for label in labels}
+# eval names
+eval_names = [label.name for label in labels if label.ignoreInEval == 'False']
 
 # category to list of label objects
 category2labels = {}

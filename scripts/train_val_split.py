@@ -1,6 +1,8 @@
 import json
 import os
 import random
+import sys
+sys.path.append('/home/stuart/PycharmProjects/EDANet')
 
 import cv2 as cv
 import cupy as cp
@@ -60,8 +62,8 @@ class TrainValSplit(object):
         )
 
         # the final split result
-        self.train_set = []
-        self.val_set = []
+        self.train_list = []
+        self.val_list = []
 
         # auxliary dict
         self.split_dict = self.getSplitDict()
@@ -91,8 +93,8 @@ class TrainValSplit(object):
         processed = set()
 
         # restore checkpoint
-        split_dict = json.load(open('../output/split.json', 'r'))
-        processed = set(json.load(open('../output/processed.json', 'r')))
+        split_dict = json.load(open('/home/stuart/PycharmProjects/EDANet/output/split.json', 'r'))
+        processed = set(json.load(open('/home/stuart/PycharmProjects/EDANet/output/processed.json', 'r')))
 
         # split by class
         for image_path, label_path in tqdm(self.image_label_pairs):
@@ -115,9 +117,9 @@ class TrainValSplit(object):
             print('Process %s finished' % image_path)
 
             # store processed result
-            with open('../output/processed.json', 'w') as json_file:
+            with open('output/processed.json', 'w') as json_file:
                 json.dump(list(processed), json_file, indent = 4)
-            with open('../output/split.json', 'w') as json_file:
+            with open('output/split.json', 'w') as json_file:
                 json.dump(split_dict, json_file, indent = 4)
 
         return split_dict
@@ -126,22 +128,31 @@ class TrainValSplit(object):
         for label_name, label_list in self.split_dict.items():
             if not label_list:
                 continue
-            for path_tuple in label_list:
-                rand_num = random.random()
-                if rand_num < self.val_ratio:
-                    self.val_set.append(path_tuple)
-                else:
-                    self.train_set.append(path_tuple)
+
+            # shuffle label list
+            random.shuffle(label_list)
+            count = 0
+            while label_list:
+                # Randomly select 100 images as val set
+                if count == 100:
+                    break
+                self.val_list.append(label_list[-1])
+                label_list.pop()
+                count += 1
+
+            # The rest for train set
+            if label_list:
+                self.train_list.extend(label_list)
 
     def outputTxt(self):
         # write to train file
         with open(self.train_file, 'w') as train:
-            for image_path, label_path in self.train_set:
+            for image_path, label_path in self.train_list:
                 train.writelines(image_path + ',' + label_path + '\n')
 
         # write to val file
         with open(self.val_file, 'w') as val:
-            for image_path, label_path in self.val_set:
+            for image_path, label_path in self.val_list:
                 val.writelines(image_path + ',' + label_path + '\n')
 
     def run(self):
@@ -153,6 +164,6 @@ if __name__ == '__main__':
     TrainValSplit(
         root_dir = '/media/stuart/data/dataset/Apollo/Lane_Detection',
         val_ratio = 0.1,
-        train_file = '../dataset/train_apollo.txt',
-        val_file = '../dataset/val_apollo.txt'
+        train_file = 'dataset/train_apollo.txt',
+        val_file = 'dataset/val_apollo.txt'
     ).run()

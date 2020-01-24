@@ -46,9 +46,9 @@ class ApolloLaneDataset(Dataset):
 
         # create a black train_id_label
         canvas = np.zeros(label_bgr.shape[:2], dtype=np.uint8)
-        for bgr_color, trainId in color2trainId.items():
+        for color, trainId in color2trainId.items():
             # map color to trainId
-            mask = (label_bgr == bgr_color).all(axis=2)
+            mask = (label_bgr == color[::-1]).all(axis=2)
             canvas[mask] = trainId
         canvas = np.expand_dims(canvas, axis = 0)
 
