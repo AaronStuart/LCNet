@@ -1,4 +1,3 @@
 weights/
 .idea/
 **/__pycache__/
-output/UNet/UNet.json
