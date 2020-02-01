@@ -9,7 +9,6 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 from dataset.apollo import ApolloLaneDataset
-from evaluate.evaluation import mIoU
 from loss.focal_loss import FocalLoss
 from model.UNet import UNet
 from scripts.apollo_label import trainId2color, trainIdsOfLanes
@@ -17,13 +16,13 @@ from scripts.apollo_label import trainId2color, trainIdsOfLanes
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--num_classes", type=int, default=38)
-    parser.add_argument("--epochs", type = int, default = 100)
+    parser.add_argument("--epochs", type = int, default = 1)
     parser.add_argument("--batch_size", type = int, default = 1)
     parser.add_argument("--learning_rate", type = float, default = 0.001)
     parser.add_argument("--num_threads", type = int, default = 8)
     parser.add_argument("--pretrained_weights", type=str)
     parser.add_argument("--checkpoint_interval", type = int, default = 1000, help = "How many iterations are saved once?")
-    parser.add_argument("--visualize_interval", type=int, default=10, help = "How many iterations are visualized once?")
+    parser.add_argument("--visualize_interval", type=int, default=100, help = "How many iterations are visualized once?")
     parser.add_argument("--train_file", type = str, default = './dataset/train_apollo.txt')
     args = parser.parse_args()
     print(args)
@@ -51,9 +50,8 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Initial model
-    # model = EDANet(num_classes = args.num_classes, init_weights = True).to(device)
-    # model = torchvision.models.segmentation.deeplabv3_resnet50(num_classes = args.num_classes).to(device)
-    model = UNet(in_channels = 3, num_classes = args.num_classes, bilinear = True, init_weights=True).to(device)
+    # model = UNet(in_channels = 3, num_classes = args.num_classes, bilinear = True, init_weights=True).to(device)
+    model = torchvision.models.segmentation.fcn_resnet50(num_classes=args.num_classes).to(device)
 
     # Define loss and optimizer
     focal_loss = FocalLoss(num_classes=args.num_classes)
@@ -90,7 +88,7 @@ if __name__ == '__main__':
 
             # train model
             optimizer.zero_grad()
-            output = model(input.to(device)).cpu()
+            output = torch.nn.functional.softmax(model(input.to(device))['out'], dim=1).cpu()
             loss = focal_loss(output, label_trainId)
 
             # print log
@@ -140,6 +138,7 @@ if __name__ == '__main__':
                 save_path = 'weights/%s/epoch_%d_iter_%d.pth' % (model.__class__.__name__, epoch, iter)
                 torch.save(model.state_dict(), save_path)
                 print('Save to', save_path, "successfully.")
+    viz.save()
 
 
 

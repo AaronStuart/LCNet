@@ -1,10 +1,8 @@
 import argparse
 import json
-import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
 
 import torch
+import torchvision
 from torch.utils.data import DataLoader
 
 from dataset.apollo import ApolloLaneDataset
@@ -27,7 +25,8 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Get model
-    model = UNet(in_channels=3, num_classes=args.num_classes, bilinear=True, init_weights=True)
+    # model = UNet(in_channels=3, num_classes=args.num_classes, bilinear=True, init_weights=True)
+    model = torchvision.models.segmentation.fcn_resnet50(num_classes=args.num_classes).to(device)
 
     # Load checkpoint
     model.load_state_dict(torch.load(args.pretrained_weights))
@@ -55,5 +54,3 @@ if __name__ == '__main__':
     # output result to json file
     with open('%s.json' % model.__class__.__name__, 'w') as json_file:
         json.dump(result, json_file, indent=4)
-
-    single_json_visiualize('output/UNet/UNet.json' % (model.__class__.__name__, model.__class__.__name__))

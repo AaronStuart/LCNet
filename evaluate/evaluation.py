@@ -85,7 +85,8 @@ class EvaluationOnDataset(Evaluation):
                 label_shape = [label_trainId.shape[-2], label_trainId.shape[-1]]
 
                 # forward
-                output = self.model(input.to(self.device)).cpu()
+                # output = self.model(input.to(self.device)).cpu()
+                output = torch.nn.functional.softmax(self.model(input.to(self.device))['out'], dim=1).cpu()
 
                 # resize to origin size
                 output = torch.nn.functional.interpolate(output, label_shape, mode='bilinear')
