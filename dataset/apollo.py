@@ -11,10 +11,9 @@ from scripts.apollo_label import color2trainId
 
 
 class ApolloLaneDataset(Dataset):
-    def __init__(self, root_dir, path_file, is_train):
+    def __init__(self, root_dir, path_file):
         self.root_dir = root_dir
         self.path_file = path_file
-        self.is_train = is_train
 
         # load file
         self.path_list = []
@@ -29,6 +28,10 @@ class ApolloLaneDataset(Dataset):
         image_path = os.path.join(self.root_dir, self.path_list[index][0])
         label_path = os.path.join(self.root_dir, self.path_list[index][1])
 
+        origin_image = cv2.imread(image_path)
+        origin_label = cv2.imread(label_path, cv2.IMREAD_UNCHANGED)
+
+
         ###### preprocess image #######
         image = Image.open(image_path)
         image_transform = transforms.Compose(
@@ -39,32 +42,40 @@ class ApolloLaneDataset(Dataset):
         )
         image = image_transform(image)
 
-        ###### preprocess image ########
-        label_bgr = cv2.imread(label_path, cv2.IMREAD_UNCHANGED)
-        if self.is_train:
-            label_bgr = cv2.resize(label_bgr, (1024, 512), interpolation=cv2.INTER_NEAREST)
-
+        ###### preprocess label ########
         # create a black train_id_label
-        canvas = np.zeros(label_bgr.shape[:2], dtype=np.uint8)
+        canvas = np.zeros(origin_label.shape[:2], dtype=np.uint8)
         for color, trainId in color2trainId.items():
             # map color to trainId
-            mask = (label_bgr == color[::-1]).all(axis=2)
+            mask = (origin_label == color).all(axis=2)
             canvas[mask] = trainId
         canvas = np.expand_dims(canvas, axis = 0)
 
         label_trainId = torch.tensor(canvas)
-        label_bgr = np.transpose(label_bgr, axes = [2, 0, 1])
+        # change from [H, W, C] to [C, H, W]
+        origin_image = np.transpose(origin_image, axes=[2, 0, 1])
+        origin_label = np.transpose(origin_label, axes=[2, 0, 1])
+        # change form BGR to RGB
+        origin_image = np.ascontiguousarray(origin_image[::-1, :, :])
+        origin_label = np.ascontiguousarray(origin_label[::-1, :, :])
 
-        return {'input': image, 'label_trainId': label_trainId, 'label_bgr' : label_bgr}
+        return {
+            'input': image,
+            'label_trainId': label_trainId,
+            'origin_image': origin_image,
+            'origin_label' : origin_label
+        }
 
 if __name__ == '__main__':
-    path_file = '/home/stuart/PycharmProjects/EDANet/dataset/train_apollo.txt'
-    
-    dataset = ApolloLaneDataset(path_file)
+    dataset = ApolloLaneDataset(
+        root_dir = '/media/stuart/data/dataset/Apollo/Lane_Detection',
+        path_file = '/home/stuart/PycharmProjects/EDANet/dataset/train_apollo.txt'
+    )
     print("len of dataset: ", len(dataset))
     
     data = dataset[0]
     print("input shape: ", data['input'].shape)
     print("label_trainId shape: ", data['label_trainId'].shape)
-    print("label_bgr shape: ", data['label_bgr'].shape)
+    print("origin_input shape: ", data['origin_label'].shape)
+    print("origin_label shape: ", data['origin_label'].shape)
     print("label_for_train unique values: ", data['label_trainId'].unique())
