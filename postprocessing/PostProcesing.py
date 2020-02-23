@@ -1,21 +1,17 @@
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
-
-class PostProcessing:
+class PostProcessing(nn.Module):
     def __init__(self):
-        pass
+        super(PostProcessing, self).__init__()
+        self.softmax = torch.nn.Softmax(dim = 1)
+        self.resize = F.interpolate
 
     def forward(self, input_logits, label):
-        result = self.softmax(input_logits)
-        result = self.resize_to_label_size(result, label)
-
-        return result
-
-    def softmax(self, input_logits, dim = 1):
-        return torch.nn.functional.softmax(input_logits, dim = dim)
-
-    def resize_to_label_size(self, input, label):
-        N, C, H, W = label.shape
-        result = torch.nn.functional.interpolate(input, size = (H, W), mode = 'bilinear')
+        # resize to label's size
+        result = self.resize(input_logits, label.shape[2 : ])
+        # softmax
+        result = self.softmax(result)
 
         return result
