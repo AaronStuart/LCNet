@@ -14,12 +14,15 @@ from scripts.visualize_train import TrainVisualize
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--use_boundary_loss", type = bool, default = True)
-    parser.add_argument("--boundary_weight", type = float, default = 10)
+    parser.add_argument("--boundary_loss_weight", type = float, default = 1)
+    parser.add_argument("--use_metric_loss", type = bool, default = True)
+    parser.add_argument("--metric_loss_weight", type = float, default = 0.001)
     parser.add_argument("--num_classes", type = int, default = 38)
     parser.add_argument("--epochs", type = int, default = 1)
+    parser.add_argument("--warm_up_iters", type = int, default = 0)
     parser.add_argument("--batch_size", type = int, default = 1)
     parser.add_argument("--learning_rate", type = float, default = 0.001)
-    parser.add_argument("--num_threads", type = int, default = 8)
+    parser.add_argument("--num_threads", type = int, default = 4)
     parser.add_argument("--pretrained_weights", type=str)
     parser.add_argument("--checkpoint_interval", type = int, default = 1000, help = "How many iterations are saved once?")
     parser.add_argument("--visualize_interval", type = int, default = 2, help = "How many iterations are visualized once?")
@@ -35,7 +38,12 @@ if __name__ == '__main__':
     # model = torchvision.models.segmentation.fcn_resnet50(num_classes=args.num_classes).to(device)
 
     # add train visualize
-    train_visualize = TrainVisualize(model.__class__.__name__, args.batch_size, 2710, 3384, args.use_boundary_loss)
+    train_visualize = TrainVisualize(
+        model.__class__.__name__,
+        args.batch_size, 2710, 3384,
+        args.use_boundary_loss,
+        args.use_metric_loss
+    )
 
     # Define loss and optimizer
 
@@ -76,15 +84,15 @@ if __name__ == '__main__':
             logits = model(data['input'].to(device))['out'].cpu()
 
             # post process
-            predict = post_process.forward(logits, data['label_trainId'])
+            logits = post_process.forward(logits, data['label_trainId'])
 
             # Loss function depend on iter
             loss = LossFactory(
-                cur_iter = iter,
-                num_classes=args.num_classes,
-                use_boundary_loss=args.use_boundary_loss,
-                boundary_weight = args.boundary_weight
-            ).compute_loss(predict, data['label_trainId'])
+                cur_iter = iter, warm_up_iters = args.warm_up_iters,
+                num_classes = args.num_classes,
+                use_boundary_loss = args.use_boundary_loss, boundary_loss_weight = args.boundary_loss_weight,
+                use_metric_loss = args.use_metric_loss, metric_loss_weight = args.metric_loss_weight
+            ).compute_loss(logits, data['label_trainId'])
 
             # update weights
             loss['total_loss'].backward()
@@ -96,7 +104,7 @@ if __name__ == '__main__':
                 train_visualize.update(
                     epoch * len(trainloader) + iter,
                     data['origin_image'],
-                    predict,
+                    torch.nn.functional.softmax(logits, dim = 1),
                     data['origin_label'],
                     loss
                 )

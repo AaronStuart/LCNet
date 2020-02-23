@@ -1,44 +1,66 @@
-from loss.boundary_loss import BoundaryLoss
+import torch
+
+from loss.boundary import BoundaryMask
 from loss.focal_loss import FocalLoss
+from loss.metric_loss import MetricLoss
+
 
 class LossFactory:
-    def __init__(self, cur_iter, num_classes, use_boundary_loss = False, boundary_weight = 0):
+    def __init__(self, cur_iter, warm_up_iters, num_classes,
+                 use_boundary_loss = False, boundary_loss_weight = 0,
+                 use_metric_loss = False, metric_loss_weight = 0
+                 ):
+        self.cur_iter = cur_iter
+        self.warm_up_iters = warm_up_iters
         self.num_classes = num_classes
         self.use_boundary_loss = use_boundary_loss
+        self.boundary_loss_weight = boundary_loss_weight
+        self.use_metric_loss = use_metric_loss
+        self.metric_loss_weight = metric_loss_weight
 
         # base loss
         self.focal_loss = FocalLoss(num_classes)
 
-        # extra loss option
-        if use_boundary_loss:
-            if cur_iter < 1000:
-                # only use focal loss when warm up
-                self.boundary_weight = 0
-                self.boundary_loss = BoundaryLoss(weight = 0)
-            else:
-                # add boundary loss
-                self.boundary_weight = boundary_weight
-                self.boundary_loss = BoundaryLoss(weight = boundary_weight)
+        # extra boundary loss option
+        if use_boundary_loss and cur_iter > warm_up_iters:
+            # only use focal loss when warm up
+            self.boundary_mask = BoundaryMask()
 
-    def compute_loss(self, input, target):
+        # extra metric loss option
+        if use_metric_loss and cur_iter > warm_up_iters:
+            # only use focal loss when warm up
+            self.metric_loss = MetricLoss()
+
+    def compute_loss(self, logits, target):
         """
 
-        :param input: prob of shape [N, C, H, W], after softmax
+        :param logits: logits of shape [N, C, H, W], before softmax
         :param target: label of shape [N, 1, H, W]
         :return:
         """
-        focal_loss_result = self.focal_loss.compute_focal_loss(input, target)
+        prob = torch.nn.functional.softmax(logits, dim = 1)
 
-        if self.use_boundary_loss:
-            boundary_loss_result = self.boundary_loss.compute_boundary_loss(focal_loss_result['focal_loss'], target)
-            return {
-                'focal_loss': focal_loss_result['loss_mean'],
-                'boundary_weight': self.boundary_weight,
-                'boundary_loss': boundary_loss_result['loss_mean'],
-                'total_loss': focal_loss_result['loss_mean'] + boundary_loss_result['loss_mean']
-            }
-        else:
-            return {
-                'focal_loss': focal_loss_result['loss_mean'],
-                'total_loss': focal_loss_result['loss_mean']
-            }
+        # focal loss
+        focal_loss_return = self.focal_loss.compute_focal_loss(prob, target)
+
+        # boundary loss
+        boundary_loss = torch.tensor(0.0)
+        if self.use_boundary_loss and self.cur_iter > self.warm_up_iters:
+            boundary_loss = self.boundary_loss_weight * self.boundary_mask.get_boundary_mask(target) * focal_loss_return['focal_loss']
+            # average on boundary
+            boundary_loss = torch.sum(boundary_loss) / torch.sum(boundary_loss != 0)
+
+        # metric loss
+        metric_loss = torch.tensor(0.0)
+        if self.use_metric_loss and self.cur_iter > self.warm_up_iters:
+            metric_loss = self.metric_loss.compute_metric_loss(logits, target)
+
+        # total loss
+        total_loss = focal_loss_return['loss_mean'] + self.boundary_loss_weight * boundary_loss + self.metric_loss_weight * metric_loss
+
+        return {
+            'focal_loss': focal_loss_return['loss_mean'],
+            'boundary_loss': boundary_loss,
+            'metric_loss': metric_loss,
+            'total_loss': total_loss
+        }

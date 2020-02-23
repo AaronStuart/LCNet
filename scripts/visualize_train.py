@@ -6,9 +6,10 @@ from scripts.apollo_label import trainId2color
 
 
 class TrainVisualize:
-    def __init__(self, model_name, batch_size, image_height, image_width, use_boundary_loss):
+    def __init__(self, model_name, batch_size, image_height, image_width, use_boundary_loss, use_metric_loss):
         self.model_name = model_name
         self.use_boundary_loss = use_boundary_loss
+        self.use_metric_loss = use_metric_loss
         self.viz = visdom.Visdom(env = model_name)
         self.windows = self.init_train_visualize(batch_size, image_height, image_width)
 
@@ -34,6 +35,12 @@ class TrainVisualize:
             )
             windows['boundary_loss'] = boundary_loss_win
 
+        if self.use_metric_loss:
+            metric_loss_win = self.viz.line(
+                Y=np.array([0]),
+                X=np.array([0]),
+            )
+            windows['metric_loss'] = metric_loss_win
         # image format should be RGB
         input_win = self.viz.images(
             np.random.randn(batch_size, 3, image_height, image_width),
@@ -78,6 +85,15 @@ class TrainVisualize:
                 X=np.array([iteration]),
                 win=self.windows['boundary_loss'],
                 name='boundary_loss',
+                update='append'
+            )
+
+        if self.use_metric_loss:
+            self.viz.line(
+                Y=np.array([loss['metric_loss'].detach().cpu()]),
+                X=np.array([iteration]),
+                win=self.windows['metric_loss'],
+                name='metric_loss',
                 update='append'
             )
 

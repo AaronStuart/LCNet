@@ -5,9 +5,21 @@ import cv2 as cv
 from scripts.apollo_label import color2trainId
 
 
-class BoundaryLoss:
-    def __init__(self, weight = 2):
-        self.weight = weight
+class BoundaryMask:
+    def __init__(self):
+        pass
+
+    def get_boundary_mask(self, target):
+        # create blank mask
+        boundary_mask = np.zeros(target.shape, dtype=np.uint8)
+
+        # fill blank mask by boundary
+        for i in range(target.shape[0]):
+            label = target[i, 0].numpy().astype(np.uint8)
+            contours, _ = cv.findContours(label, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+            cv.drawContours(boundary_mask[i, 0], contours, -1, 1, 2)
+
+        return torch.tensor(boundary_mask, dtype = torch.float)
 
     def compute_boundary_loss(self, input_loss, target):
         """Compute boundary weight mask by boundary
