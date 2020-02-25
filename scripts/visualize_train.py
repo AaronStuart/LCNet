@@ -10,7 +10,7 @@ class TrainVisualize:
         self.model_name = model_name
         self.use_boundary_loss = use_boundary_loss
         self.use_metric_loss = use_metric_loss
-        self.viz = visdom.Visdom(env = model_name)
+        self.viz = visdom.Visdom(env = model_name + '_weighted_focal')
         self.windows = self.init_train_visualize(batch_size, image_height, image_width)
 
     def init_train_visualize(self, batch_size, image_height, image_width):
@@ -64,7 +64,7 @@ class TrainVisualize:
 
     def update(self, iteration, input, predict, label, loss):
         self.viz.line(
-            Y=np.array([loss['total_loss'].detach().cpu()]),
+            Y=np.array([loss['weighted_loss'].detach().cpu()]),
             X=np.array([iteration]),
             win=self.windows['total_loss'],
             name='total_loss',

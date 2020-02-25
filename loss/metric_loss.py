@@ -28,7 +28,11 @@ class MetricLoss:
                 # collect positive set and negative set
                 pos_indexes = torch.nonzero(flat_label[i, 0] == j).numpy().squeeze()
                 neg_indexes = torch.nonzero(flat_label[i, 0] != j).numpy().squeeze()
-                positives = flat_logits[i, :, pos_indexes].transpose(0, 1)
+                try:
+                    positives = flat_logits[i, :, pos_indexes].transpose(0, 1)
+                except:
+                    print("flat_logits.shape", flat_logits.shape)
+                    print("flat_logits[i, :, pos_indexes].shape", flat_logits[i, :, pos_indexes].shape)
                 negatives = flat_logits[i, :, neg_indexes].transpose(0, 1)
 
                 # random select an anchor

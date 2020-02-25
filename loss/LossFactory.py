@@ -7,8 +7,8 @@ from loss.metric_loss import MetricLoss
 
 class LossFactory:
     def __init__(self, cur_iter, warm_up_iters, num_classes,
-                 use_boundary_loss = False, boundary_loss_weight = 0,
-                 use_metric_loss = False, metric_loss_weight = 0
+                 use_boundary_loss = False, boundary_loss_weight = 1,
+                 use_metric_loss = False, metric_loss_weight = 0.001
                  ):
         self.cur_iter = cur_iter
         self.warm_up_iters = warm_up_iters
@@ -22,12 +22,12 @@ class LossFactory:
         self.focal_loss = FocalLoss(num_classes)
 
         # extra boundary loss option
-        if use_boundary_loss and cur_iter > warm_up_iters:
+        if use_boundary_loss and cur_iter >= warm_up_iters:
             # only use focal loss when warm up
             self.boundary_mask = BoundaryMask()
 
         # extra metric loss option
-        if use_metric_loss and cur_iter > warm_up_iters:
+        if use_metric_loss and cur_iter >= warm_up_iters:
             # only use focal loss when warm up
             self.metric_loss = MetricLoss()
 
@@ -55,12 +55,12 @@ class LossFactory:
         if self.use_metric_loss and self.cur_iter > self.warm_up_iters:
             metric_loss = self.metric_loss.compute_metric_loss(logits, target)
 
-        # total loss
-        total_loss = focal_loss_return['loss_mean'] + self.boundary_loss_weight * boundary_loss + self.metric_loss_weight * metric_loss
+        # weighted loss
+        weighted_loss = focal_loss_return['loss_mean'] + self.boundary_loss_weight * boundary_loss + self.metric_loss_weight * metric_loss
 
         return {
             'focal_loss': focal_loss_return['loss_mean'],
             'boundary_loss': boundary_loss,
             'metric_loss': metric_loss,
-            'total_loss': total_loss
+            'weighted_loss': weighted_loss
         }

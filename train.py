@@ -13,9 +13,9 @@ from scripts.visualize_train import TrainVisualize
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--use_boundary_loss", type = bool, default = True)
+    parser.add_argument("--use_boundary_loss", type = bool, default = False)
     parser.add_argument("--boundary_loss_weight", type = float, default = 1)
-    parser.add_argument("--use_metric_loss", type = bool, default = True)
+    parser.add_argument("--use_metric_loss", type = bool, default = False)
     parser.add_argument("--metric_loss_weight", type = float, default = 0.001)
     parser.add_argument("--num_classes", type = int, default = 38)
     parser.add_argument("--epochs", type = int, default = 1)
@@ -95,7 +95,7 @@ if __name__ == '__main__':
             ).compute_loss(logits, data['label_trainId'])
 
             # update weights
-            loss['total_loss'].backward()
+            loss['weighted_loss'].backward()
             optimizer.step()
             print(loss)
 
