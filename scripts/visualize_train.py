@@ -1,124 +1,45 @@
-import numpy as np
+import torchvision.utils as vutils
 import torch
-import visdom
+from tensorboardX import SummaryWriter
 
 from scripts.apollo_label import trainId2color
 
 
 class TrainVisualize:
-    def __init__(self, model_name, batch_size, image_height, image_width, use_boundary_loss, use_metric_loss):
-        self.model_name = model_name
+    def __init__(self, log_dir, model, use_boundary_loss, use_metric_loss):
+        self.model = model
+        self.summary = SummaryWriter(log_dir)
         self.use_boundary_loss = use_boundary_loss
         self.use_metric_loss = use_metric_loss
-        self.viz = visdom.Visdom(env = model_name + '_weighted_focal')
-        self.windows = self.init_train_visualize(batch_size, image_height, image_width)
 
-    def init_train_visualize(self, batch_size, image_height, image_width):
-        windows = {}
-
-        total_loss_win = self.viz.line(
-            Y=np.array([0]),
-            X=np.array([0]),
-        )
-        windows['total_loss'] = total_loss_win
-
-        focal_loss_win = self.viz.line(
-            Y=np.array([0]),
-            X=np.array([0]),
-        )
-        windows['focal_loss'] = focal_loss_win
-
-        if self.use_boundary_loss:
-            boundary_loss_win = self.viz.line(
-                Y=np.array([0]),
-                X=np.array([0]),
-            )
-            windows['boundary_loss'] = boundary_loss_win
-
-        if self.use_metric_loss:
-            metric_loss_win = self.viz.line(
-                Y=np.array([0]),
-                X=np.array([0]),
-            )
-            windows['metric_loss'] = metric_loss_win
-        # image format should be RGB
-        input_win = self.viz.images(
-            np.random.randn(batch_size, 3, image_height, image_width),
-            opts=dict(caption='input')
-        )
-        windows['input'] = input_win
-
-        label_win = self.viz.images(
-            np.random.randn(batch_size, 3, image_height, image_width),
-            opts=dict(caption='label')
-        )
-        windows['label'] = label_win
-
-        predict_win = self.viz.images(
-            np.random.randn(batch_size, 3, image_height, image_width),
-            opts=dict(caption='predict')
-        )
-        windows['predict'] = predict_win
-
-        return windows
-
-    def update(self, iteration, input, predict, label, loss):
-        self.viz.line(
-            Y=np.array([loss['weighted_loss'].detach().cpu()]),
-            X=np.array([iteration]),
-            win=self.windows['total_loss'],
-            name='total_loss',
-            update='append'
-        )
-
-        self.viz.line(
-            Y=np.array([loss['focal_loss'].detach().cpu()]),
-            X=np.array([iteration]),
-            win=self.windows['focal_loss'],
-            name='focal_loss',
-            update='append'
-        )
-
-        if self.use_boundary_loss:
-            self.viz.line(
-                Y=np.array([loss['boundary_loss'].detach().cpu()]),
-                X=np.array([iteration]),
-                win=self.windows['boundary_loss'],
-                name='boundary_loss',
-                update='append'
-            )
-
-        if self.use_metric_loss:
-            self.viz.line(
-                Y=np.array([loss['metric_loss'].detach().cpu()]),
-                X=np.array([iteration]),
-                win=self.windows['metric_loss'],
-                name='metric_loss',
-                update='append'
-            )
-
-        self.viz.images(
-            input,
-            win=self.windows['input']
-        )
-
-        self.viz.images(
-            label,
-            win=self.windows['label']
-        )
-
-        output_grayscale = torch.argmax(predict, axis=1)
+    def update(self, iteration, origin_image, origin_label, origin_logits, resized_logits, loss):
+        predict_gray = torch.argmax(resized_logits, axis=1)
         # map trainId to color
-        predict_image = torch.zeros_like(label)
+        predict_color = torch.zeros_like(origin_label)
         for trainId, rgb in trainId2color.items():
-            mask = (output_grayscale == trainId)
-            predict_image[:, 0, :, :][mask] = rgb[0]
-            predict_image[:, 1, :, :][mask] = rgb[1]
-            predict_image[:, 2, :, :][mask] = rgb[2]
-        self.viz.images(
-            predict_image,
-            win=self.windows['predict']
-        )
+            mask = (predict_gray == trainId)
+            predict_color[:, 0, :, :][mask] = rgb[0]
+            predict_color[:, 1, :, :][mask] = rgb[1]
+            predict_color[:, 2, :, :][mask] = rgb[2]
 
-    def save(self):
-        self.viz.save(envs = [self.model_name])
+        # loss visualize
+        self.summary.add_scalar('loss/weighted_loss', loss['weighted_loss'], iteration)
+        self.summary.add_scalar('loss/focal_loss', loss['focal_loss'], iteration)
+        self.summary.add_scalar('loss/boundary_loss', loss['boundary_loss'], iteration)
+        self.summary.add_scalar('loss/metric_loss', loss['metric_loss'], iteration)
+
+        # input output visualize
+        self.summary.add_image('image/origin_image', vutils.make_grid(origin_image), iteration)
+        self.summary.add_image('image/origin_label', vutils.make_grid(origin_label), iteration)
+        self.summary.add_image('image/predict_image', vutils.make_grid(predict_color), iteration)
+
+        # weight visualize
+        for name, param in self.model.named_parameters():
+            self.summary.add_histogram(name.replace('.', '/'), param.clone().cpu().data.numpy(), iteration)
+
+        # feature map visualize
+        visualize_logits = origin_logits[0].detach().cpu().unsqueeze(dim = 1)
+        self.summary.add_image('origin_logits', vutils.make_grid(visualize_logits, normalize = True), iteration)
+
+        # visualize_logits = resized_logits[0].detach().cpu().unsqueeze(dim = 1)
+        # self.summary.add_image('resized_logits', vutils.make_grid(visualize_logits, normalize = True), iteration)

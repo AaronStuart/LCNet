@@ -2,6 +2,7 @@ import argparse
 import os
 
 import torch
+from tensorboardX import SummaryWriter
 from torch import optim
 from torch.utils.data import DataLoader
 
@@ -25,7 +26,7 @@ if __name__ == '__main__':
     parser.add_argument("--num_threads", type = int, default = 4)
     parser.add_argument("--pretrained_weights", type=str)
     parser.add_argument("--checkpoint_interval", type = int, default = 1000, help = "How many iterations are saved once?")
-    parser.add_argument("--visualize_interval", type = int, default = 2, help = "How many iterations are visualized once?")
+    parser.add_argument("--visualize_interval", type = int, default = 10, help = "How many iterations are visualized once?")
     parser.add_argument("--dataset_root_dir", type = str, default = "/media/stuart/data/dataset/Apollo/Lane_Detection")
     parser.add_argument("--train_file", type = str, default = './dataset/train_apollo.txt')
     args = parser.parse_args()
@@ -37,16 +38,14 @@ if __name__ == '__main__':
     model = UNet(in_channels = 3, num_classes = args.num_classes, bilinear = True, init_weights=True).to(device)
     # model = torchvision.models.segmentation.fcn_resnet50(num_classes=args.num_classes).to(device)
 
-    # add train visualize
-    train_visualize = TrainVisualize(
-        model.__class__.__name__,
-        args.batch_size, 2710, 3384,
-        args.use_boundary_loss,
-        args.use_metric_loss
+    train_visualizer = TrainVisualize(
+        log_dir = os.path.join('/media/stuart/data/events', model.__class__.__name__),
+        model = model,
+        use_boundary_loss = False,
+        use_metric_loss = True
     )
 
-    # Define loss and optimizer
-
+    # Define optimizer
     optimizer = optim.Adam(model.parameters(), lr = args.learning_rate)
 
     # Define post process
@@ -84,7 +83,7 @@ if __name__ == '__main__':
             logits = model(data['input'].to(device))['out'].cpu()
 
             # post process
-            logits = post_process.forward(logits, data['label_trainId'])
+            resized_logits = post_process.forward(logits, data['label_trainId'])
 
             # Loss function depend on iter
             loss = LossFactory(
@@ -92,7 +91,7 @@ if __name__ == '__main__':
                 num_classes = args.num_classes,
                 use_boundary_loss = args.use_boundary_loss, boundary_loss_weight = args.boundary_loss_weight,
                 use_metric_loss = args.use_metric_loss, metric_loss_weight = args.metric_loss_weight
-            ).compute_loss(logits, data['label_trainId'])
+            ).compute_loss(resized_logits, data['label_trainId'])
 
             # update weights
             loss['weighted_loss'].backward()
@@ -101,30 +100,19 @@ if __name__ == '__main__':
 
             # visualize train process
             if iter % args.visualize_interval == 0:
-                train_visualize.update(
-                    epoch * len(trainloader) + iter,
-                    data['origin_image'],
-                    torch.nn.functional.softmax(logits, dim = 1),
-                    data['origin_label'],
-                    loss
+                train_visualizer.update(
+                    iteration = iter,
+                    origin_image = data['origin_image'],
+                    origin_label = data['origin_label'],
+                    origin_logits = logits,
+                    resized_logits = resized_logits,
+                    loss = loss
                 )
 
+            # save checkpoint
             if (epoch * len(trainloader) + iter) != 0 and (epoch * len(trainloader) + iter) % args.checkpoint_interval == 0:
-                # save checkpoint
+
                 os.makedirs("weights/%s" % (model.__class__.__name__), exist_ok=True)
                 save_path = 'weights/%s/epoch_%d_iter_%d.pth' % (model.__class__.__name__, epoch, iter)
                 torch.save(model.state_dict(), save_path)
                 print('Save to', save_path, "successfully.")
-
-                # save visualize
-                os.makedirs("output/%s" % (model.__class__.__name__), exist_ok=True)
-                train_visualize.save()
-                print("Save visdom environment successfully.")
-
-
-
-
-
-
-
-
