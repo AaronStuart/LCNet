@@ -45,10 +45,6 @@ class FocalLoss(nn.Module):
         }
 
 if __name__ == '__main__':
-    predict = np.array([
-        [0.0, 100.0],
-        [0.0, 10.0],
-        [0.0, 1.0]
-    ])
-    label = np.array([0, 0, 0])
-    print(FocalLoss()(torch.Tensor(predict), torch.Tensor(label).to(torch.int64)))
+    predict = np.ndarray(shape=[2, 38, 100, 100])
+    label = np.random.randint(low = 0, high = 37, size=[2, 1, 100, 100])
+    print(FocalLoss(num_classes = 38).compute_focal_loss(predict, label))

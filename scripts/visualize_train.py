@@ -12,10 +12,12 @@ class TrainVisualize:
         self.use_boundary_loss = use_boundary_loss
         self.use_metric_loss = use_metric_loss
 
-    def update(self, iteration, origin_image, origin_label, origin_logits, resized_logits, loss):
-        predict_gray = torch.argmax(resized_logits, axis=1)
+    def update(self, iteration, input, label, logits, loss):
+        # change to NCHW, and change form BGR to RGB
+        label = label.permute(dims = [0, 3, 1, 2])
+        predict_gray = torch.argmax(logits, axis=1)
         # map trainId to color
-        predict_color = torch.zeros_like(origin_label)
+        predict_color = torch.zeros_like(label)
         for trainId, rgb in trainId2color.items():
             mask = (predict_gray == trainId)
             predict_color[:, 0, :, :][mask] = rgb[0]
@@ -29,17 +31,14 @@ class TrainVisualize:
         self.summary.add_scalar('loss/metric_loss', loss['metric_loss'], iteration)
 
         # input output visualize
-        self.summary.add_image('image/origin_image', vutils.make_grid(origin_image), iteration)
-        self.summary.add_image('image/origin_label', vutils.make_grid(origin_label), iteration)
-        self.summary.add_image('image/predict_image', vutils.make_grid(predict_color), iteration)
+        self.summary.add_image('image/input', vutils.make_grid(input), iteration)
+        self.summary.add_image('image/label', vutils.make_grid(label), iteration)
+        self.summary.add_image('image/predict', vutils.make_grid(predict_color), iteration)
 
         # weight visualize
         for name, param in self.model.named_parameters():
             self.summary.add_histogram(name.replace('.', '/'), param.clone().cpu().data.numpy(), iteration)
 
         # feature map visualize
-        visualize_logits = origin_logits[0].detach().cpu().unsqueeze(dim = 1)
+        visualize_logits = logits[0].detach().cpu().unsqueeze(dim = 1)
         self.summary.add_image('origin_logits', vutils.make_grid(visualize_logits, normalize = True), iteration)
-
-        # visualize_logits = resized_logits[0].detach().cpu().unsqueeze(dim = 1)
-        # self.summary.add_image('resized_logits', vutils.make_grid(visualize_logits, normalize = True), iteration)
