@@ -3,6 +3,7 @@ import os
 import cv2
 import torch
 import numpy as np
+import cupy as cp
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
@@ -45,17 +46,20 @@ class ApolloLaneDataset(Dataset):
             label_bgr = cv2.resize(label_bgr, (1024, 512), interpolation=cv2.INTER_NEAREST)
 
         # create a black train_id_label
-        canvas = np.zeros(label_bgr.shape[:2], dtype=np.uint8)
-        for color, trainId in color2trainId.items():
+        label_bgr = cp.asarray(label_bgr)
+        canvas = cp.zeros(label_bgr.shape[:2], dtype=np.uint8)
+        for rgb_color, trainId in color2trainId.items():
             # map color to trainId
-            mask = (label_bgr == color[::-1]).all(axis=2)
+            bgr_color = cp.asarray(rgb_color[::-1], dtype=cp.uint)
+            mask = (label_bgr == bgr_color).all(axis=2)
             canvas[mask] = trainId
-        canvas = np.expand_dims(canvas, axis = 0)
+        canvas = cp.expand_dims(canvas, axis = 0)
 
         label_trainId = torch.tensor(canvas)
-        label_bgr = np.transpose(label_bgr, axes = [2, 0, 1])
+        label_bgr = cp.transpose(label_bgr, axes = [2, 0, 1])
+        labe_rgb = cp.asnumpy(label_bgr[[2, 1 ,0], :, :])
 
-        return {'input': image, 'label_trainId': label_trainId, 'label_bgr' : label_bgr}
+        return {'input': image, 'label_trainId': label_trainId, 'labe_rgb' : labe_rgb}
 
 if __name__ == '__main__':
     path_file = '/home/stuart/PycharmProjects/EDANet/dataset/train_apollo.txt'
