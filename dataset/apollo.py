@@ -1,101 +1,100 @@
 import os
-
-import cv2
-import torch
+import types
+from random import shuffle
 import numpy as np
-import cupy as cp
-import torchvision.transforms.functional as F
-from torch.utils.data import Dataset
+import nvidia.dali.ops as ops
+import nvidia.dali.types as types
+from nvidia.dali.pipeline import Pipeline
+import matplotlib.pyplot as plt
 
-from scripts.apollo_label import color2trainId
-
-from line_profiler import LineProfiler
-
-class ApolloLaneDataset(Dataset):
-    def __init__(self, root_dir, path_file):
+class ExternalInputIterator(object):
+    def __init__(self, batch_size, root_dir, file_path):
+        self.batch_size = batch_size
         self.root_dir = root_dir
-        self.path_file = path_file
+        self.file_path = file_path
+        with open(file_path, 'r') as f:
+            self.files = [line.rstrip() for line in f if line is not '']
+        shuffle(self.files)
 
-        # load file
-        self.path_list = []
-        with open(self.path_file) as file:
-            for line in file.readlines():
-                self.path_list.append(line.strip().split(','))
+    def __iter__(self):
+        self.i = 0
+        self.n = len(self.files)
+        return self
 
-    def __len__(self):
-        return len(self.path_list)
+    def __next__(self):
+        jpegs, labels = [], []
+        for _ in range(self.batch_size):
+            jpeg_filename, label_filename = self.files[self.i].split(',')
 
-    def __getitem__(self, index):
-        image_path = os.path.join(self.root_dir, self.path_list[index][0])
-        label_path = os.path.join(self.root_dir, self.path_list[index][1])
+            # open encoded jpg
+            f = open(os.path.join(self.root_dir, jpeg_filename), 'rb')
+            jpegs.append(np.frombuffer(f.read(), dtype = np.uint8))
 
-        # open image and label, change image from BGR to RGB
-        orgin_image = cp.asarray(cv2.imread(image_path))
-        origin_label = cp.asarray(cv2.imread(label_path, cv2.IMREAD_UNCHANGED))
+            # open encoded png
+            f = open(os.path.join(self.root_dir, label_filename), 'rb')
+            labels.append(np.frombuffer(f.read(), dtype=np.uint8))
 
-        # concat along channel axis
-        image_label_concat = cp.concatenate([orgin_image, origin_label], axis=-1)
+            self.i = (self.i + 1) % self.n
 
-        # random crop
-        crop_result = self.randomCrop(image_label_concat, crop_ratio = 1 / 3)
-        crop_image, crop_label = crop_result[:, :, : 3], crop_result[:, :, 3 : ]
+        return (jpegs, labels)
 
-        train_label = self.bgrToGray(crop_label)
-        train_label = cp.expand_dims(train_label, axis = 0)
-
-        # change input from BGR to RGB
-        input = F.to_tensor(cp.asnumpy(crop_image)[:, :, [2, 1, 0]])
-        train_label = torch.tensor(train_label, dtype = torch.int)
+    next = __next__
 
 
-        return {
-            'input': input,
-            'crop_label': cp.asnumpy(crop_label)[:, :, [2, 1, 0]] ,
-            'train_label': train_label
+class ApolloPipeline(Pipeline):
+    def __init__(self, batch_size, num_threads, device_id, iterator):
+        super(ApolloPipeline, self).__init__(batch_size, num_threads, device_id, seed=12)
+        self.iterator = iterator
+        self.input = ops.ExternalSource()
+        self.input_label = ops.ExternalSource()
+        self.decode = ops.ImageDecoder(device="mixed", output_type=types.RGB)
+        self.cast = ops.Cast(device="gpu", dtype=types.INT32)
 
-        }
+    def define_graph(self):
+        self.jpegs = self.input()
+        images = self.decode(self.jpegs)
 
-    def bgrToGray(self, bgr_label):
-        train_label = cp.zeros(bgr_label.shape[:2])
-        for color, trainId in color2trainId.items():
-            # color is RGB format, label is BGR format
-            color = cp.asarray(color)[::-1]
-            mask = (bgr_label == color).all(axis=2)
-            train_label[mask] = trainId
-        return train_label
+        self.labels = self.input_label()
+        labels = self.decode(self.labels)
 
-    def randomCrop(self, image, crop_ratio):
-        H, W, C = image.shape
+        return (images, labels)
 
-        # get target size
-        target_height = int(H * crop_ratio)
-        target_width = int(W * crop_ratio)
-
-        # random select crop area
-        h_begin = cp.random.randint(low = 0, high = H - target_height)
-        w_begin = cp.random.randint(low = 0, high = W - target_width)
-
-        return image[h_begin : h_begin + target_height, w_begin : w_begin + target_width, :]
-
+    def iter_setup(self):
+        (images, labels) = self.iterator.next()
+        self.feed_input(self.jpegs, images, layout="HWC")
+        self.feed_input(self.labels, labels, layout="HWC")
 
 
 def main():
-    dataset = ApolloLaneDataset(
+    eii = ExternalInputIterator(
+        batch_size=4,
         root_dir='/media/stuart/data/dataset/Apollo/Lane_Detection',
-        path_file='/home/stuart/PycharmProjects/LCNet/dataset/train_apollo.txt'
+        file_path='/home/stuart/PycharmProjects/LCNet/dataset/train_apollo.txt'
     )
-    print("len of dataset: ", len(dataset))
+    iterator = iter(eii)
 
-    data = dataset[0]
-    print("input shape: ", data['input'].shape)
-    print("crop_label shape: ", data['crop_label'].shape)
-    print("train_label shape: ", data['train_label'].shape)
-    print("train_label unique values: ", data['train_label'].unique())
+    pipe = ApolloPipeline(
+        batch_size=4,
+        num_threads=2,
+        device_id=0,
+        iterator = iterator
+    )
+
+    pipe.build()
+    pipe_out = pipe.run()
+    print(pipe_out)
+
+    inputs = pipe_out[0].as_cpu()
+    labels = pipe_out[1].as_cpu()
+
+    image = inputs.at(2)
+    label = labels.at(2)
+    print(image.shape)
+    print(label.shape)
+    plt.imshow(image.astype('uint8'))
+    plt.imshow(label.astype('uint8'))
+    plt.show()
+
 
 if __name__ == '__main__':
-    lp = LineProfiler()
-    lp.add_function(ApolloLaneDataset.__getitem__)
-    lp.add_function(ApolloLaneDataset.bgrToGray)
-    lp_wrapper = lp(main)
-    lp_wrapper()
-    lp.print_stats()
+    main()

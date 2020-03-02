@@ -24,7 +24,7 @@ def main():
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--learning_rate", type=float, default=0.001)
     parser.add_argument("--num_threads", type=int, default=1)
-    parser.add_argument("--pretrained_weights", type=str)
+    parser.add_argument("--pretrained_weights", type=str, default='/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/epoch_0_iter_2000.pth')
     parser.add_argument("--checkpoint_interval", type=int, default=1000, help="How many iterations are saved once?")
     parser.add_argument("--visualize_interval", type=int, default=1, help="How many iterations are visualized once?")
     parser.add_argument("--dataset_root_dir", type=str, default="/media/stuart/data/dataset/Apollo/Lane_Detection")
