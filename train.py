@@ -17,7 +17,7 @@ if __name__ == '__main__':
     parser.add_argument("--batch_size", type = int, default = 4)
     parser.add_argument("--learning_rate", type = float, default = 0.001)
     # parser.add_argument("--num_threads", type = int, default = 8)
-    parser.add_argument("--pretrained_weights", type=str)
+    parser.add_argument("--pretrained_weights", type=str, default='/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/epoch_0_iter_2000.pth')
     parser.add_argument("--checkpoint_interval", type = int, default = 1000, help = "How many iterations are saved once?")
     parser.add_argument("--visualize_interval", type=int, default=100, help = "How many iterations are visualized once?")
     parser.add_argument("--train_file", type = str, default = './dataset/train_apollo.txt')
