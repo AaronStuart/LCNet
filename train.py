@@ -2,11 +2,10 @@ import argparse
 import os
 
 import torch
-from line_profiler import LineProfiler
 from torch import optim
 from torch.utils.data import DataLoader
 
-from dataset.apollo import ApolloLaneDataset
+from dataset.apollo import ApolloDataset
 from loss.LossFactory import LossFactory
 from model.UNet import UNet
 from postprocessing.PostProcesing import PostProcessing
@@ -60,17 +59,12 @@ def main():
         begin_iter = int(args.pretrained_weights.split('_')[-1].split('.')[0]) + 1
 
     # Define dataloader
-    trainset = ApolloLaneDataset(
-        root_dir=args.dataset_root_dir,
-        path_file=args.train_file
-    )
-    trainloader = DataLoader(
-        trainset,
-        batch_size=args.batch_size,
-        shuffle=True,
-        pin_memory=True,
-        drop_last=True
-    )
+    trainloader = ApolloDataset(
+        root_dir = args.dataset_root_dir,
+        file_path = args.train_file,
+        batch_size = 4,
+        num_threads = 12
+    ).getIterator()
 
     model.train()
     for epoch in range(begin_epoch, args.epochs):
@@ -79,7 +73,7 @@ def main():
             optimizer.zero_grad()
 
             # get model output
-            logits = model(data['input'].to(device))['out'].cpu()
+            logits = model(data[0]['data'].to(device))['out'].cpu()
 
             # Loss function depend on iter
             loss = LossFactory(
