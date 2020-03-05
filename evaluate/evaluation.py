@@ -77,7 +77,7 @@ class EvaluationOnDataset(Evaluation):
             self.accumulateOnImage(predict[batch], label[batch])
 
     def evaluate(self):
-        print('Totally %d images' % len(self.dataloader))
+        print('Totally %d batchs' % len(self.dataloader))
         with torch.no_grad():
             for iter, data in enumerate(self.dataloader):
                 # get data
@@ -85,7 +85,8 @@ class EvaluationOnDataset(Evaluation):
                 label_shape = [label_trainId.shape[-2], label_trainId.shape[-1]]
 
                 # forward
-                output = self.model(input.to(self.device)).cpu()
+                # output = self.model(input.to(self.device)).cpu()
+                output = self.model(input.to(self.device))['out'].cpu()
 
                 # resize to origin size
                 output = torch.nn.functional.interpolate(output, label_shape, mode='bilinear')
@@ -94,7 +95,7 @@ class EvaluationOnDataset(Evaluation):
                 output = torch.argmax(output, axis=1, keepdim=True).numpy()
                 label = label_trainId.numpy()
                 self.accumulateOnBatch(output, label)
-                print('image %d processed successful.' % iter * input.shape[0])
+                print('Batch %d processed successful.' % iter * input.shape[0])
 
         # calculate IoU for each class
         for class_name, class_dict in self.final_result.items():
