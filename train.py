@@ -2,6 +2,7 @@ import argparse
 import os
 
 import torch
+import torchvision
 from torch import optim
 from torch.utils.data import DataLoader
 
@@ -11,44 +12,57 @@ from model.UNet import UNet
 from postprocessing.PostProcesing import PostProcessing
 from scripts.visualize_train import TrainVisualize
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--use_boundary_loss", type=bool, default=False)
-    parser.add_argument("--boundary_loss_weight", type=float, default=1)
-    parser.add_argument("--use_metric_loss", type=bool, default=False)
-    parser.add_argument("--metric_loss_weight", type=float, default=0.001)
-    parser.add_argument("--num_classes", type=int, default=38)
-    parser.add_argument("--epochs", type=int, default=1)
-    parser.add_argument("--warm_up_iters", type=int, default=0)
-    parser.add_argument("--batch_size", type=int, default=1)
-    parser.add_argument("--learning_rate", type=float, default=0.001)
-    parser.add_argument("--num_threads", type=int, default=1)
-    parser.add_argument("--pretrained_weights", type=str, default='/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/epoch_0_iter_2000.pth')
-    parser.add_argument("--checkpoint_interval", type=int, default=1000, help="How many iterations are saved once?")
-    parser.add_argument("--visualize_interval", type=int, default=1, help="How many iterations are visualized once?")
-    parser.add_argument("--dataset_root_dir", type=str, default="/media/stuart/data/dataset/Apollo/Lane_Detection")
-    parser.add_argument("--train_file", type=str, default='./dataset/train_apollo.txt')
-    args = parser.parse_args()
-    print(args)
+parser = argparse.ArgumentParser()
+#############  Model  #############
+parser.add_argument("--num_classes", type=int, default=38)
 
+#############  Data  #############
+parser.add_argument("--dataset_root_dir", type=str, default="/media/stuart/data/dataset/Apollo/Lane_Detection")
+parser.add_argument("--train_file", type=str, default='./dataset/train_apollo_gray.txt')
+parser.add_argument("--num_threads", type=int, default=1)
+
+#############  Loss  #############
+parser.add_argument("--use_boundary_loss", type=bool, default=False)
+parser.add_argument("--boundary_loss_weight", type=float, default=1)
+
+parser.add_argument("--use_metric_loss", type=bool, default=False)
+parser.add_argument("--metric_loss_weight", type=float, default=0.001)
+
+############# Train  #############
+parser.add_argument("--epochs", type=int, default=1)
+parser.add_argument("--batch_size", type=int, default=1)
+parser.add_argument("--warm_up_iters", type=int, default=0)
+parser.add_argument("--learning_rate", type=float, default=0.001)
+parser.add_argument("--pretrained_weights", type=str)
+parser.add_argument("--save_interval", type=int, default=1000, help="How many iterations are saved once?")
+parser.add_argument("--visualize_interval", type=int, default=1, help="How many iterations are visualized once?")
+
+args = parser.parse_args()
+print(args)
+
+def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Initial model
-    model = UNet(in_channels=3, num_classes=args.num_classes, bilinear=True, init_weights=True).to(device)
+    # model = UNet(in_channels=3, num_classes=args.num_classes, bilinear=True, init_weights=True).to(device)
     # model = torchvision.models.segmentation.fcn_resnet50(num_classes=args.num_classes).to(device)
+    model = torchvision.models.segmentation.deeplabv3_resnet50(
+        pretrained = False,
+        num_classes = args.num_classes
+    ).to(device)
 
     train_visualizer = TrainVisualize(
         log_dir=os.path.join('/media/stuart/data/events', model.__class__.__name__),
         model=model,
         use_boundary_loss=False,
-        use_metric_loss=True
+        use_metric_loss=False
     )
 
     # Define optimizer
-    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-
-    # Define post process
-    post_process = PostProcessing()
+    optimizer = optim.Adam(
+        model.parameters(),
+        lr=args.learning_rate
+    )
 
     # Start from checkpoints if specified
     begin_epoch, begin_iter = 0, 0
@@ -62,8 +76,8 @@ def main():
     trainloader = ApolloDataset(
         root_dir = args.dataset_root_dir,
         file_path = args.train_file,
-        batch_size = 4,
-        num_threads = 12
+        batch_size = args.batch_size,
+        num_threads = args.num_threads
     ).getIterator()
 
     model.train()
@@ -100,14 +114,11 @@ def main():
 
             # save checkpoint
             if (epoch * len(trainloader) + iter) != 0 and (
-                    epoch * len(trainloader) + iter) % args.checkpoint_interval == 0:
+                    epoch * len(trainloader) + iter) % args.save_interval == 0:
                 os.makedirs("weights/%s" % (model.__class__.__name__), exist_ok=True)
                 save_path = 'weights/%s/epoch_%d_iter_%d.pth' % (model.__class__.__name__, epoch, iter)
                 torch.save(model.state_dict(), save_path)
                 print('Save to', save_path, "successfully.")
 
 if __name__ == '__main__':
-    lp = LineProfiler()
-    lp_wraper = lp(main)
-    lp_wraper()
-    lp.print_stats()
+    main()

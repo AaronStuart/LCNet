@@ -19,8 +19,11 @@ class ColorToGray(object):
         result = []
         for root, dirs, files in os.walk(root_dir):
             for image_name in files:
-                if image_name.endswith('png'):
-                    result.append(os.path.join(root, image_name))
+                if image_name.endswith('jpg'):
+                    rgb_label_path = os.path.join(root, image_name.replace('jpg', 'png'))
+                    gray_label_path = rgb_label_path.replace('.png', '_gray.png')
+                    if not os.path.exists(gray_label_path):
+                        result.append(rgb_label_path)
         return result
 
     def generate_trainid_label(self):
