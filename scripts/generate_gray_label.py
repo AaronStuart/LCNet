@@ -6,6 +6,7 @@ import numpy as np
 
 from scripts.apollo_label import color2trainId
 
+
 class ColorToGray(object):
     def __init__(self, root_dir):
         """
@@ -26,10 +27,9 @@ class ColorToGray(object):
         for label_path in self.label_paths:
             label = cv.imread(label_path)
             trainid_label = self.map_color_to_gray(label)
-            # cv.imwrite(label_path.replace('.png', '_gray.png'), trainid_label)
-            cv.imwrite('temp.png', trainid_label)
+            cv.imwrite(label_path.replace('.png', '_gray.png'), trainid_label)
 
-    def map_color_to_gray(self, opencv_label):
+    def map_opencv_to_gray(self, opencv_label):
         """
 
         :param bgr_label: label opened by opencv
@@ -43,9 +43,10 @@ class ColorToGray(object):
             mask = (label == bgr).all(axis=2)
             trainId_label[mask] = trainId
 
-        return trainId_label.asnumpy()
+        return cp.asnumpy(trainId_label)
+
 
 if __name__ == '__main__':
     ColorToGray(
-        root_dir = '/media/stuart/data/dataset/Apollo/Lane_Detection'
+        root_dir='/media/stuart/data/dataset/Apollo/Lane_Detection'
     ).generate_trainid_label()
