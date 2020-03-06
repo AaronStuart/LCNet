@@ -32,12 +32,12 @@ parser.add_argument("--metric_loss_weight", type=float, default=0.001)
 
 ############# Train  #############
 parser.add_argument("--epochs", type=int, default=1)
-parser.add_argument("--batch_size", type=int, default=2)
+parser.add_argument("--batch_size", type=int, default=3)
 parser.add_argument("--warm_up_iters", type=int, default=0)
 parser.add_argument("--learning_rate", type=float, default=0.001)
 parser.add_argument("--pretrained_weights", type=str)
-parser.add_argument("--save_interval", type=int, default=10, help="How many iterations are saved once?")
-parser.add_argument("--visualize_interval", type=int, default=100, help="How many iterations are visualized once?")
+parser.add_argument("--save_interval", type=int, default=500, help="How many iterations are saved once?")
+parser.add_argument("--visualize_interval", type=int, default=500, help="How many iterations are visualized once?")
 
 args = parser.parse_args()
 print(args)
@@ -110,7 +110,7 @@ def main():
             print(loss)
 
             # visualize train process
-            if iter != 0 and iter % args.visualize_interval == 0:
+            if iter % args.visualize_interval == 0:
                 train_visualizer.update(
                     iteration=iter,
                     input=data[0]['data'][0].cpu(),
