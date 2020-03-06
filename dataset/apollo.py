@@ -3,10 +3,14 @@ import types
 from random import shuffle
 
 import numpy as np
+import cv2 as cv
 import nvidia.dali.ops as ops
 import nvidia.dali.types as types
+import torch
 from nvidia.dali.pipeline import Pipeline
 from nvidia.dali.plugin.pytorch import DALIClassificationIterator as PyTorchIterator
+
+from scripts.apollo_label import valid_trainIds
 
 
 class ExternalInputIterator(object):
@@ -56,18 +60,27 @@ class ApolloPipeline(Pipeline):
         self.iterator = iterator
         self.input = ops.ExternalSource()
         self.input_label = ops.ExternalSource()
-        self.decode = ops.ImageDecoder(device="mixed", output_type=types.RGB)
+        self.rgb_decode = ops.ImageDecoder(device="mixed", output_type=types.RGB)
+        self.gray_decode = ops.ImageDecoder(device="mixed", output_type=types.GRAY)
 
-        self.resize = ops.Resize(device='gpu', resize_longer=1024)
+        self.input_resize = ops.Resize(device='gpu', resize_longer=1024, interp_type=types.INTERP_LINEAR)
+        self.label_resize = ops.Resize(device='gpu', resize_longer=1024, interp_type=types.INTERP_NN)
+
+        self.change_type = ops.Cast(device='gpu', dtype=types.FLOAT)
+        self.transpose = ops.Transpose(device="gpu", perm=[2, 0, 1])
 
     def define_graph(self):
         self.jpegs = self.input()
-        images = self.decode(self.jpegs)
-        resized_images = self.resize(images)
+        images = self.rgb_decode(self.jpegs)
+        resized_images = self.input_resize(images)
+        resized_images = self.change_type(resized_images)
+        resized_images = self.transpose(resized_images)
 
         self.labels = self.input_label()
-        labels = self.decode(self.labels)
-        resize_labels = self.resize(labels)
+        labels = self.gray_decode(self.labels)
+        resize_labels = self.label_resize(labels)
+        resize_labels = self.change_type(resize_labels)
+        resize_labels = self.transpose(resize_labels)
 
         return (resized_images, resize_labels)
 
@@ -115,7 +128,7 @@ class ApolloDataset:
 if __name__ == '__main__':
     apollo_iterator = ApolloDataset(
         root_dir='/media/stuart/data/dataset/Apollo/Lane_Detection',
-        file_path='/home/stuart/PycharmProjects/LCNet/dataset/train_apollo.txt',
+        file_path='/home/stuart/PycharmProjects/LCNet/dataset/train_apollo_gray.txt',
         batch_size=4,
         num_threads=12
     ).getIterator()
@@ -123,3 +136,10 @@ if __name__ == '__main__':
     for iter, data in enumerate(apollo_iterator):
         print("input shape is ", data[0]['data'].shape)
         print("label shape is ", data[0]['label'].shape)
+        # if iter == 0:
+        #     gray_label = torch.squeeze(data[0]['label'][0])
+        #     for gray_value in valid_trainIds:
+        #         canvas = torch.zeros_like(gray_label, dtype=torch.uint8)
+        #         canvas[gray_label == gray_value] = 255
+        #         cv.imwrite("%d.png" % gray_value, canvas.cpu().numpy())
+

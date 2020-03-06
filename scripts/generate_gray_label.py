@@ -3,6 +3,7 @@ import os
 import cupy as cp
 import cv2 as cv
 import numpy as np
+from tqdm import tqdm
 
 from scripts.apollo_label import color2trainId
 
@@ -19,17 +20,17 @@ class ColorToGray(object):
         result = []
         for root, dirs, files in os.walk(root_dir):
             for image_name in files:
-                if image_name.endswith('jpg'):
-                    rgb_label_path = os.path.join(root, image_name.replace('jpg', 'png'))
+                if image_name.endswith('png') and not image_name.endswith('gray.png'):
+                    rgb_label_path = os.path.join(root, image_name)
                     gray_label_path = rgb_label_path.replace('.png', '_gray.png')
                     if not os.path.exists(gray_label_path):
                         result.append(rgb_label_path)
         return result
 
     def generate_trainid_label(self):
-        for label_path in self.label_paths:
+        for label_path in tqdm(self.label_paths):
             label = cv.imread(label_path)
-            trainid_label = self.map_color_to_gray(label)
+            trainid_label = self.map_opencv_to_gray(label)
             cv.imwrite(label_path.replace('.png', '_gray.png'), trainid_label)
 
     def map_opencv_to_gray(self, opencv_label):

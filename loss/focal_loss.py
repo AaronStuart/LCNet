@@ -30,8 +30,9 @@ class FocalLoss(nn.Module):
         weightsMask = torch.zeros_like(target, dtype = torch.float)
         for i in range(self.num_classes):
             mask = target == i
+            #TODO: need fast
             weightsMask[mask] = classWeights[i]
-
+        # TODO: need fast
         one_hot_label = torch.zeros_like(input).scatter_(dim = 1, index = target.long(), src = torch.tensor(1))
         p_t = torch.sum(input * one_hot_label, dim = 1)
         # Consider numerical stability

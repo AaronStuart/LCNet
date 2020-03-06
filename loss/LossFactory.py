@@ -62,5 +62,5 @@ class LossFactory:
             'focal_loss': focal_loss_return['loss_mean'],
             'boundary_loss': boundary_loss,
             'metric_loss': metric_loss,
-            'weighted_loss': weighted_loss
+            'total_loss': weighted_loss
         }

@@ -13,16 +13,16 @@ class TrainVisualize:
         self.use_metric_loss = use_metric_loss
 
     def update(self, iteration, input, label, logits, loss):
-        # change to NCHW, and change form BGR to RGB
-        label = label.permute(dims = [0, 3, 1, 2])
-        predict_gray = torch.argmax(logits, axis=1)
+        label = torch.squeeze(label)
+        predict = torch.argmax(logits, axis=0)
+        H, W = label.shape
         # map trainId to color
-        predict_color = torch.zeros_like(label)
+        predict_color = torch.zeros(size=[3, H, W], dtype=torch.uint8)
         for trainId, rgb in trainId2color.items():
-            mask = (predict_gray == trainId)
-            predict_color[:, 0, :, :][mask] = rgb[0]
-            predict_color[:, 1, :, :][mask] = rgb[1]
-            predict_color[:, 2, :, :][mask] = rgb[2]
+            mask = (predict == trainId)
+            predict_color[0][mask] = rgb[0]
+            predict_color[1][mask] = rgb[1]
+            predict_color[2][mask] = rgb[2]
 
         # loss visualize
         self.summary.add_scalar('loss/weighted_loss', loss['weighted_loss'], iteration)
@@ -40,5 +40,5 @@ class TrainVisualize:
             self.summary.add_histogram(name.replace('.', '/'), param.clone().cpu().data.numpy(), iteration)
 
         # feature map visualize
-        visualize_logits = logits[0].detach().cpu().unsqueeze(dim = 1)
-        self.summary.add_image('origin_logits', vutils.make_grid(visualize_logits, normalize = True), iteration)
+        logits = logits.unsqueeze(dim = 1)
+        self.summary.add_image('origin_logits', vutils.make_grid(logits, normalize = True), iteration)

@@ -3,11 +3,13 @@ import os
 
 import torch
 import torchvision
+from line_profiler import LineProfiler
 from torch import optim
 from torch.utils.data import DataLoader
 
 from dataset.apollo import ApolloDataset
 from loss.LossFactory import LossFactory
+from loss.focal_loss import FocalLoss
 from model.UNet import UNet
 from postprocessing.PostProcesing import PostProcessing
 from scripts.visualize_train import TrainVisualize
@@ -30,12 +32,12 @@ parser.add_argument("--metric_loss_weight", type=float, default=0.001)
 
 ############# Train  #############
 parser.add_argument("--epochs", type=int, default=1)
-parser.add_argument("--batch_size", type=int, default=1)
+parser.add_argument("--batch_size", type=int, default=2)
 parser.add_argument("--warm_up_iters", type=int, default=0)
 parser.add_argument("--learning_rate", type=float, default=0.001)
 parser.add_argument("--pretrained_weights", type=str)
 parser.add_argument("--save_interval", type=int, default=1000, help="How many iterations are saved once?")
-parser.add_argument("--visualize_interval", type=int, default=1, help="How many iterations are visualized once?")
+parser.add_argument("--visualize_interval", type=int, default=1000, help="How many iterations are visualized once?")
 
 args = parser.parse_args()
 print(args)
@@ -83,6 +85,8 @@ def main():
     model.train()
     for epoch in range(begin_epoch, args.epochs):
         for iter, data in enumerate(trainloader, begin_iter):
+            if iter == 10:
+                break
             # train model
             optimizer.zero_grad()
 
@@ -95,30 +99,35 @@ def main():
                 num_classes=args.num_classes,
                 use_boundary_loss=args.use_boundary_loss, boundary_loss_weight=args.boundary_loss_weight,
                 use_metric_loss=args.use_metric_loss, metric_loss_weight=args.metric_loss_weight
-            ).compute_loss(logits, data['train_label'])
+            ).compute_loss(logits, data[0]['label'].cpu())
 
             # update weights
-            loss['weighted_loss'].backward()
+            loss['total_loss'].backward()
             optimizer.step()
             print(loss)
 
             # visualize train process
-            if iter % args.visualize_interval == 0:
+            if iter != 0 and iter % args.visualize_interval == 0:
                 train_visualizer.update(
                     iteration=iter,
-                    input=data['input'],
-                    label=data['crop_label'],
-                    logits=logits,
+                    input=data[0]['data'][0].cpu(),
+                    label=data[0]['label'][0].cpu(),
+                    logits=logits[0].detach().cpu(),
                     loss=loss
                 )
 
             # save checkpoint
-            if (epoch * len(trainloader) + iter) != 0 and (
-                    epoch * len(trainloader) + iter) % args.save_interval == 0:
+            if iter != 0 and iter % args.save_interval == 0:
                 os.makedirs("weights/%s" % (model.__class__.__name__), exist_ok=True)
                 save_path = 'weights/%s/epoch_%d_iter_%d.pth' % (model.__class__.__name__, epoch, iter)
                 torch.save(model.state_dict(), save_path)
                 print('Save to', save_path, "successfully.")
 
 if __name__ == '__main__':
-    main()
+    lp = LineProfiler()
+    lp.add_function(LossFactory.compute_loss)
+    lp.add_function(FocalLoss.compute_focal_loss)
+    lp.add_function(TrainVisualize.update)
+    lp_wrapper = lp(main)
+    lp_wrapper()
+    lp.print_stats()
