@@ -37,7 +37,7 @@ parser.add_argument("--warm_up_iters", type=int, default=0)
 parser.add_argument("--learning_rate", type=float, default=0.001)
 parser.add_argument("--pretrained_weights", type=str)
 parser.add_argument("--save_interval", type=int, default=1000, help="How many iterations are saved once?")
-parser.add_argument("--visualize_interval", type=int, default=1000, help="How many iterations are visualized once?")
+parser.add_argument("--visualize_interval", type=int, default=100, help="How many iterations are visualized once?")
 
 args = parser.parse_args()
 print(args)
@@ -51,7 +51,7 @@ def main():
     model = torchvision.models.segmentation.deeplabv3_resnet50(
         pretrained = False,
         num_classes = args.num_classes
-    ).to(device)
+    ).to(device).train()
 
     train_visualizer = TrainVisualize(
         log_dir=os.path.join('/media/stuart/data/events', model.__class__.__name__),
@@ -67,12 +67,18 @@ def main():
     )
 
     # Start from checkpoints if specified
-    begin_epoch, begin_iter = 0, 0
+    restart_epoch, restart_iter = 0, 0
     if args.pretrained_weights:
-        model.load_state_dict(torch.load(args.pretrained_weights))
-        print("load", args.pretrained_weights, "successfully.")
-        begin_epoch = int(args.pretrained_weights.split('_')[1])
-        begin_iter = int(args.pretrained_weights.split('_')[-1].split('.')[0]) + 1
+        # load checkpoint file
+        checkpoint = torch.load(args.pretrained_weights)
+
+        # restore
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        restart_epoch = checkpoint['epoch']
+        restart_iter = checkpoint['iteration']
+
+        print("Load %s successfully." % args.pretrained_weights)
 
     # Define dataloader
     trainloader = ApolloDataset(
@@ -82,11 +88,8 @@ def main():
         num_threads = args.num_threads
     ).getIterator()
 
-    model.train()
-    for epoch in range(begin_epoch, args.epochs):
-        for iter, data in enumerate(trainloader, begin_iter):
-            if iter == 10:
-                break
+    for epoch in range(restart_epoch, args.epochs):
+        for iter, data in enumerate(trainloader, restart_iter):
             # train model
             optimizer.zero_grad()
 
@@ -118,10 +121,20 @@ def main():
 
             # save checkpoint
             if iter != 0 and iter % args.save_interval == 0:
-                os.makedirs("weights/%s" % (model.__class__.__name__), exist_ok=True)
-                save_path = 'weights/%s/epoch_%d_iter_%d.pth' % (model.__class__.__name__, epoch, iter)
-                torch.save(model.state_dict(), save_path)
-                print('Save to', save_path, "successfully.")
+                save_path = "weights/%s" % model.__class__.__name__
+                if not os.path.exists(save_path):
+                    os.makedirs(save_path)
+
+                torch.save(
+                    {
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'epoch': epoch,
+                        'iteration': iter
+                    },
+                    os.path.join(save_path, 'model_epoch_%d_iter_%d.pth' % (epoch, iter))
+                )
+                print('Finish save checkpoint.')
 
 if __name__ == '__main__':
     lp = LineProfiler()

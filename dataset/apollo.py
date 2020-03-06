@@ -79,7 +79,6 @@ class ApolloPipeline(Pipeline):
         self.labels = self.input_label()
         labels = self.gray_decode(self.labels)
         resize_labels = self.label_resize(labels)
-        resize_labels = self.change_type(resize_labels)
         resize_labels = self.transpose(resize_labels)
 
         return (resized_images, resize_labels)

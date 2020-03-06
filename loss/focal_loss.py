@@ -16,29 +16,46 @@ class FocalLoss(nn.Module):
             classWeights[i] = 1 / (torch.log(1.1 + frequency[i]))
         return classWeights
 
-    def compute_focal_loss(self, input, target):
+    def get_one_hot_label(self, label):
+        N, C, H, W = label.shape
+
+        # flatten
+        flatten_label = label.view(-1)
+
+        # generate one hot label
+        one_hot_label = torch.tensor(
+            np.eye(self.num_classes, dtype = np.uint8)[flatten_label.numpy()],
+        )
+
+        # reshape one_hot_label
+        one_hot_label = one_hot_label.view(N, H, W, self.num_classes).permute(0, 3, 1, 2)
+
+        return one_hot_label
+
+    def compute_focal_loss(self, input, label):
         '''
             :param input: shape [N, C, H, W] 经过Softmax后的输出
             :param target: shape [N, 1, H, W]
             :return: shape of [N, 1, H, W]
             '''
-        # calculate class weights
-        frequency = torch.Tensor([torch.sum(target == i) for i in range(self.num_classes)])
-        classWeights = self.compute_class_weights(frequency)
+        # # calculate class weights
+        # frequency = torch.Tensor([torch.sum(label == i) for i in range(self.num_classes)])
+        # classWeights = self.compute_class_weights(frequency)
+        #
+        # # generate classWeights mask
+        # weightsMask = torch.zeros_like(label, dtype = torch.float)
+        # for i in range(self.num_classes):
+        #     mask = label == i
+        #     #TODO: need fast
+        #     weightsMask[mask] = classWeights[i]
 
-        # generate classWeights mask
-        weightsMask = torch.zeros_like(target, dtype = torch.float)
-        for i in range(self.num_classes):
-            mask = target == i
-            #TODO: need fast
-            weightsMask[mask] = classWeights[i]
-        # TODO: need fast
-        one_hot_label = torch.zeros_like(input).scatter_(dim = 1, index = target.long(), src = torch.tensor(1))
+        one_hot_label = self.get_one_hot_label(label)
+
         p_t = torch.sum(input * one_hot_label, dim = 1)
-        # Consider numerical stability
-        p_t = torch.clamp(p_t, min = 1e-8, max = 1.0)
-        # focal_loss = -1 * torch.pow((1 - p_t), self.gamma) * torch.log(p_t)
-        focal_loss = -1 * weightsMask * torch.pow((1 - p_t), self.gamma) * torch.log(p_t)
+        p_t = torch.clamp(p_t, min = 1e-4, max = 1.0)
+
+        # focal_loss = -1 * weightsMask * torch.pow((1 - p_t), self.gamma) * torch.log(p_t)
+        focal_loss = -1 * torch.pow((1 - p_t), self.gamma) * torch.log(p_t)
 
         return {
             'focal_loss' : focal_loss,
