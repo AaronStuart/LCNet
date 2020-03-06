@@ -36,7 +36,7 @@ parser.add_argument("--batch_size", type=int, default=2)
 parser.add_argument("--warm_up_iters", type=int, default=0)
 parser.add_argument("--learning_rate", type=float, default=0.001)
 parser.add_argument("--pretrained_weights", type=str)
-parser.add_argument("--save_interval", type=int, default=1000, help="How many iterations are saved once?")
+parser.add_argument("--save_interval", type=int, default=10, help="How many iterations are saved once?")
 parser.add_argument("--visualize_interval", type=int, default=100, help="How many iterations are visualized once?")
 
 args = parser.parse_args()
@@ -102,7 +102,7 @@ def main():
                 num_classes=args.num_classes,
                 use_boundary_loss=args.use_boundary_loss, boundary_loss_weight=args.boundary_loss_weight,
                 use_metric_loss=args.use_metric_loss, metric_loss_weight=args.metric_loss_weight
-            ).compute_loss(logits, data[0]['label'].cpu())
+            ).compute_loss(logits.cpu(), data[0]['label'].cpu())
 
             # update weights
             loss['total_loss'].backward()
@@ -132,7 +132,7 @@ def main():
                         'epoch': epoch,
                         'iteration': iter
                     },
-                    os.path.join(save_path, 'model_epoch_%d_iter_%d.pth' % (epoch, iter))
+                    os.path.join(save_path, '%s_epoch_%d_iter_%d.pth' % (model.__class__.__name__, epoch, iter))
                 )
                 print('Finish save checkpoint.')
 
