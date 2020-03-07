@@ -1,17 +1,14 @@
 import argparse
 import os
-
+import cv2 as cv
 import torch
 import torchvision
 from line_profiler import LineProfiler
 from torch import optim
-from torch.utils.data import DataLoader
 
-from dataset.apollo import ApolloDataset
+from dataset.apollo import ApolloDaliDataset
 from loss.LossFactory import LossFactory
 from loss.focal_loss import FocalLoss
-from model.UNet import UNet
-from postprocessing.PostProcesing import PostProcessing
 from scripts.visualize_train import TrainVisualize
 
 parser = argparse.ArgumentParser()
@@ -27,7 +24,7 @@ parser.add_argument("--num_threads", type=int, default=1)
 parser.add_argument("--use_boundary_loss", type=bool, default=False)
 parser.add_argument("--boundary_loss_weight", type=float, default=1)
 
-parser.add_argument("--use_metric_loss", type=bool, default=False)
+parser.add_argument("--use_metric_loss", type=bool, default=True)
 parser.add_argument("--metric_loss_weight", type=float, default=0.001)
 
 ############# Train  #############
@@ -36,7 +33,7 @@ parser.add_argument("--batch_size", type=int, default=3)
 parser.add_argument("--warm_up_iters", type=int, default=0)
 parser.add_argument("--learning_rate", type=float, default=0.001)
 parser.add_argument("--pretrained_weights", type=str)
-parser.add_argument("--save_interval", type=int, default=500, help="How many iterations are saved once?")
+parser.add_argument("--save_interval", type=int, default=1000, help="How many iterations are saved once?")
 parser.add_argument("--visualize_interval", type=int, default=500, help="How many iterations are visualized once?")
 
 args = parser.parse_args()
@@ -80,8 +77,8 @@ def main():
 
         print("Load %s successfully." % args.pretrained_weights)
 
-    # Define dataloader
-    trainloader = ApolloDataset(
+    # Get Dali dataloader
+    trainloader = ApolloDaliDataset(
         root_dir = args.dataset_root_dir,
         file_path = args.train_file,
         batch_size = args.batch_size,
@@ -90,11 +87,16 @@ def main():
 
     for epoch in range(restart_epoch, args.epochs):
         for iter, data in enumerate(trainloader, restart_iter):
+            # TODO: DALI permute have bugs, use pytorch change format to "NCHW"
+            # TODO: DALI's RGB image have changed to BGR sequence, after go through Pytorch, maybe a bug
+            input = data[0]['input'].permute(0, 3, 1, 2)[:, [2, 1, 0], :, :]
+            label = data[0]['label'].permute(0, 3, 1, 2)
+
             # train model
             optimizer.zero_grad()
 
             # get model output
-            logits = model(data[0]['data'].to(device))['out'].cpu()
+            logits = model(input.to(device))['out'].cpu()
 
             # Loss function depend on iter
             loss = LossFactory(
@@ -102,7 +104,7 @@ def main():
                 num_classes=args.num_classes,
                 use_boundary_loss=args.use_boundary_loss, boundary_loss_weight=args.boundary_loss_weight,
                 use_metric_loss=args.use_metric_loss, metric_loss_weight=args.metric_loss_weight
-            ).compute_loss(logits.cpu(), data[0]['label'].cpu())
+            ).compute_loss(logits.cpu(), label.cpu())
 
             # update weights
             loss['total_loss'].backward()
@@ -113,8 +115,8 @@ def main():
             if iter % args.visualize_interval == 0:
                 train_visualizer.update(
                     iteration=iter,
-                    input=data[0]['data'][0].cpu(),
-                    label=data[0]['label'][0].cpu(),
+                    input=input[0].cpu(),
+                    label=label[0].cpu(),
                     logits=logits[0].detach().cpu(),
                     loss=loss
                 )

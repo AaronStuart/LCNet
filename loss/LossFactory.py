@@ -5,11 +5,12 @@ from loss.focal_loss import FocalLoss
 from loss.metric_loss import MetricLoss
 
 
-class LossFactory:
-    def __init__(self, cur_iter, warm_up_iters, num_classes,
-                 use_boundary_loss = False, boundary_loss_weight = 1,
-                 use_metric_loss = False, metric_loss_weight = 0.001
-                 ):
+class LossFactory(object):
+    def __init__(
+            self, cur_iter, warm_up_iters, num_classes,
+            use_boundary_loss = False, boundary_loss_weight = 1,
+            use_metric_loss = False, metric_loss_weight = 0.001
+    ):
         self.cur_iter = cur_iter
         self.warm_up_iters = warm_up_iters
         self.num_classes = num_classes
@@ -56,11 +57,11 @@ class LossFactory:
             metric_loss = self.metric_loss.compute_metric_loss(logits, target)
 
         # weighted loss
-        weighted_loss = focal_loss_return['loss_mean'] + self.boundary_loss_weight * boundary_loss + self.metric_loss_weight * metric_loss
+        total_loss = focal_loss_return['loss_mean'] + self.boundary_loss_weight * boundary_loss + self.metric_loss_weight * metric_loss
 
         return {
             'focal_loss': focal_loss_return['loss_mean'],
             'boundary_loss': boundary_loss,
             'metric_loss': metric_loss,
-            'total_loss': weighted_loss
+            'total_loss': total_loss
         }

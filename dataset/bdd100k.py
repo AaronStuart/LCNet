@@ -1,4 +1,3 @@
-import torch
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
@@ -35,7 +34,7 @@ class BDD100K(Dataset):
         label = Image.open(label_path)
         label_transform = transforms.Compose(
             [
-                transforms.Resize([512, 1024],interpolation = Image.NEAREST),
+                transforms.Resize([512, 1024], interpolation=Image.NEAREST),
                 transforms.Grayscale(),
                 transforms.ToTensor()
             ]
@@ -43,6 +42,7 @@ class BDD100K(Dataset):
         label = label_transform(label)
 
         return {'image': image, 'label': label}
+
 
 if __name__ == '__main__':
     path_file = '/home/stuart/PycharmProjects/EDANet/dataset/train_bdd100k.txt'
