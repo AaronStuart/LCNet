@@ -1,2 +1,0 @@
-ColorImage_road02/ColorImage/Record022/Camera 6/170927_070549593_Camera_6.jpg,Labels_road02/Label/Record022/Camera 6/170927_070549593_Camera_6_bin_gray.png
-ColorImage_road02/ColorImage/Record048/Camera 5/170927_074300143_Camera_5.jpg,Labels_road02/Label/Record048/Camera 5/170927_074300143_Camera_5_bin_gray.png

@@ -139,7 +139,7 @@ for label in labels:
 #--------------------------------------------------------------------------------
 
 # returns the label name that describes a single instance (if possible)
-# e.g.     input     |   output
+# e.g.     input     |   experiments
 #        ----------------------
 #          car       |   car
 #          cargroup  |   car

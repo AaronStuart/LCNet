@@ -42,7 +42,7 @@ print(args)
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Initial model
+    # Define model
     # model = UNet(in_channels=3, num_classes=args.num_classes, bilinear=True, init_weights=True).to(device)
     # model = torchvision.models.segmentation.fcn_resnet50(num_classes=args.num_classes).to(device)
     model = torchvision.models.segmentation.deeplabv3_resnet50(
@@ -50,6 +50,7 @@ def main():
         num_classes = args.num_classes
     ).to(device).train()
 
+    # Define visualizer
     train_visualizer = TrainVisualize(
         log_dir=os.path.join('/media/stuart/data/events', model.__class__.__name__),
         model=model,
@@ -78,15 +79,17 @@ def main():
         print("Load %s successfully." % args.pretrained_weights)
 
     # Get Dali dataloader
-    trainloader = ApolloDaliDataset(
+    train_iterator = ApolloDaliDataset(
         root_dir = args.dataset_root_dir,
         file_path = args.train_file,
         batch_size = args.batch_size,
-        num_threads = args.num_threads
+        num_threads = args.num_threads,
+        is_train = True
     ).getIterator()
 
+    # Train
     for epoch in range(restart_epoch, args.epochs):
-        for iter, data in enumerate(trainloader, restart_iter):
+        for iter, data in enumerate(train_iterator, restart_iter):
             # TODO: DALI permute have bugs, use pytorch change format to "NCHW"
             # TODO: DALI's RGB image have changed to BGR sequence, after go through Pytorch, maybe a bug
             input = data[0]['input'].permute(0, 3, 1, 2)[:, [2, 1, 0], :, :]
@@ -95,7 +98,7 @@ def main():
             # train model
             optimizer.zero_grad()
 
-            # get model output
+            # get model experiments
             logits = model(input.to(device))['out'].cpu()
 
             # Loss function depend on iter
@@ -137,6 +140,17 @@ def main():
                     os.path.join(save_path, '%s_epoch_%d_iter_%d.pth' % (model.__class__.__name__, epoch, iter))
                 )
                 print('Finish save checkpoint.')
+
+    # Save entire model
+    model_save_path = "experiments/%s" % model.__class__.__name__
+    if not os.path.exists(model_save_path):
+        os.makedirs(model_save_path)
+
+    torch.save(
+        model,
+        os.path.join(model_save_path, '%s_final.pth' % model.__class__.__name__)
+    )
+    print("Save final model to %s" % model_save_path)
 
 if __name__ == '__main__':
     lp = LineProfiler()

@@ -93,8 +93,8 @@ class TrainValSplit(object):
         processed = set()
 
         # restore checkpoint
-        split_dict = json.load(open('/home/stuart/PycharmProjects/EDANet/output/split.json', 'r'))
-        processed = set(json.load(open('/home/stuart/PycharmProjects/EDANet/output/processed.json', 'r')))
+        split_dict = json.load(open('/home/stuart/PycharmProjects/EDANet/experiments/split.json', 'r'))
+        processed = set(json.load(open('/home/stuart/PycharmProjects/EDANet/experiments/processed.json', 'r')))
 
         # split by class
         for image_path, label_path in tqdm(self.image_label_pairs):
@@ -117,9 +117,9 @@ class TrainValSplit(object):
             print('Process %s finished' % image_path)
 
             # store processed result
-            with open('output/processed.json', 'w') as json_file:
+            with open('experiments/processed.json', 'w') as json_file:
                 json.dump(list(processed), json_file, indent = 4)
-            with open('output/split.json', 'w') as json_file:
+            with open('experiments/split.json', 'w') as json_file:
                 json.dump(split_dict, json_file, indent = 4)
 
         return split_dict

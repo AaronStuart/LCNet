@@ -38,8 +38,8 @@ def multi_json_visualize(json_path_dict):
 if __name__ == '__main__':
     multi_json_visualize(
         json_path_dict={
-            'U-Net': '/home/stuart/PycharmProjects/LCNet/output/UNet/UNet.json',
-            'FCN': '/home/stuart/PycharmProjects/LCNet/output/FCN/FCN.json',
-            'DeepLabV3': '/home/stuart/PycharmProjects/LCNet/output/DeepLabV3/DeepLabV3.json'
+            'U-Net': '/home/stuart/PycharmProjects/LCNet/experiments/UNet/UNet.json',
+            'FCN': '/home/stuart/PycharmProjects/LCNet/experiments/FCN/FCN.json',
+            'DeepLabV3': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/DeepLabV3.json'
         }
     )

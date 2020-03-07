@@ -35,7 +35,7 @@ class TrainVisualize:
         self.summary.add_scalar('loss/boundary_loss', loss['boundary_loss'], iteration)
         self.summary.add_scalar('loss/metric_loss', loss['metric_loss'], iteration)
 
-        # input output visualize
+        # input experiments visualize
         self.summary.add_image('image/input', vutils.make_grid(input.to(torch.uint8)), iteration)
         self.summary.add_image('image/label', vutils.make_grid(label), iteration)
         self.summary.add_image('image/predict', vutils.make_grid(predict_color), iteration)

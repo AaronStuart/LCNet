@@ -51,9 +51,11 @@ class ExternalInputIterator(object):
 
 
 class ApolloPipeline(Pipeline):
-    def __init__(self, batch_size, num_threads, device_id, iterator):
+    def __init__(self, batch_size, num_threads, device_id, iterator, is_train):
         super(ApolloPipeline, self).__init__(batch_size, num_threads, device_id, seed=12)
         self.iterator = iterator
+        self.is_train = is_train
+
         self.input = ops.ExternalSource()
         self.input_label = ops.ExternalSource()
 
@@ -83,7 +85,8 @@ class ApolloPipeline(Pipeline):
         # label preprocess
         self.labels = self.input_label()
         labels = self.gray_decode(self.labels)
-        labels = self.label_resize(labels)
+        if self.is_train:
+            labels = self.label_resize(labels)
 
         return (inputs, labels)
 
@@ -98,11 +101,12 @@ class ApolloPipeline(Pipeline):
 
 
 class ApolloDaliDataset(object):
-    def __init__(self, root_dir, file_path, batch_size, num_threads):
+    def __init__(self, root_dir, file_path, batch_size, num_threads, is_train):
         self.root_dir = root_dir
         self.file_path = file_path
         self.batch_size = batch_size
         self.num_threads = num_threads
+        self.is_train = is_train
 
     def getIterator(self):
         # create disk file iterator
@@ -117,7 +121,8 @@ class ApolloDaliDataset(object):
             batch_size=self.batch_size,
             num_threads=self.num_threads,
             device_id=0,
-            iterator=file_iterator
+            iterator=file_iterator,
+            is_train = self.is_train
         )
 
         # create iterator of pytorch
@@ -133,14 +138,15 @@ class ApolloDaliDataset(object):
 
 
 if __name__ == '__main__':
-    apollo_iterator = ApolloDaliDataset(
+    train_iterator = ApolloDaliDataset(
         root_dir='/media/stuart/data/dataset/Apollo/Lane_Detection',
-        file_path='/home/stuart/PycharmProjects/LCNet/dataset/temp.txt',
+        file_path='/home/stuart/PycharmProjects/LCNet/dataset/train_apollo_gray.txt',
         batch_size=1,
-        num_threads=12
+        num_threads=12,
+        is_train=True
     ).getIterator()
 
-    for iter, data in enumerate(apollo_iterator):
+    for iter, data in enumerate(train_iterator):
         input, label = data[0]['input'], data[0]['label']
         print("input shape is ", input.shape)
         print("label shape is ", label.shape)
