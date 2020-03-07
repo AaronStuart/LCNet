@@ -24,7 +24,7 @@ parser.add_argument("--num_threads", type=int, default=1)
 parser.add_argument("--use_boundary_loss", type=bool, default=False)
 parser.add_argument("--boundary_loss_weight", type=float, default=1)
 
-parser.add_argument("--use_metric_loss", type=bool, default=True)
+parser.add_argument("--use_metric_loss", type=bool, default=False)
 parser.add_argument("--metric_loss_weight", type=float, default=0.001)
 
 ############# Train  #############
@@ -32,9 +32,9 @@ parser.add_argument("--epochs", type=int, default=1)
 parser.add_argument("--batch_size", type=int, default=3)
 parser.add_argument("--warm_up_iters", type=int, default=0)
 parser.add_argument("--learning_rate", type=float, default=0.001)
-parser.add_argument("--pretrained_weights", type=str)
+parser.add_argument("--pretrained_weights", type=str, default='/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/DeepLabV3_epoch_0_iter_1000.pth')
 parser.add_argument("--save_interval", type=int, default=1000, help="How many iterations are saved once?")
-parser.add_argument("--visualize_interval", type=int, default=500, help="How many iterations are visualized once?")
+parser.add_argument("--visualize_interval", type=int, default=100, help="How many iterations are visualized once?")
 
 args = parser.parse_args()
 print(args)

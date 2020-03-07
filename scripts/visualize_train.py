@@ -1,14 +1,19 @@
-import torchvision.utils as vutils
+import os
+from datetime import datetime
+
 import torch
+import torchvision.utils as vutils
 from tensorboardX import SummaryWriter
 
-from scripts.apollo_label import trainId2color
+from scripts.apollo_label import trainId2color, trainId2name
 
-import PIL
+
 class TrainVisualize:
     def __init__(self, log_dir, model, use_boundary_loss, use_metric_loss):
         self.model = model
-        self.summary = SummaryWriter(log_dir)
+        self.summary = SummaryWriter(
+            logdir=os.path.join(log_dir, "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now()))
+        )
         self.use_boundary_loss = use_boundary_loss
         self.use_metric_loss = use_metric_loss
 
@@ -40,5 +45,8 @@ class TrainVisualize:
             self.summary.add_histogram(name.replace('.', '/'), param.clone().cpu().data.numpy(), iteration)
 
         # feature map visualize
-        logits = logits.unsqueeze(dim = 1)
-        self.summary.add_image('origin_logits', vutils.make_grid(logits, normalize = True), iteration)
+        for trainId in range(logits.shape[0]):
+            label_name = trainId2name[trainId]
+            label_channel = logits[trainId].unsqueeze(dim=0).unsqueeze(dim=0)
+            self.summary.add_image('origin_logits/%s' % label_name, vutils.make_grid(label_channel, normalize=True),
+                                   iteration)
