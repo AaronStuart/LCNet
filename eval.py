@@ -13,6 +13,7 @@ parser.add_argument("--num_classes", type=int, default=38)
 parser.add_argument("--batch_size", type=int, default=1)
 parser.add_argument("--num_threads", type=int, default=1)
 parser.add_argument("--model_path", type=str)
+parser.add_argument("--dataset_root_dir", type=str, default='/media/stuart/data/dataset/Apollo/Lane_Detection')
 parser.add_argument("--val_file", type=str, default='./dataset/val_apollo_gray.txt')
 args = parser.parse_args()
 
@@ -61,8 +62,6 @@ class Evaluation(object):
             self.final_result[label_name]['FN'] += FN
 
     def eval(self):
-        print('Totally %d batchs' % len(self.dataloader))
-
         with torch.no_grad():
             for iter, data in tqdm(enumerate(self.dataloader)):
                 # TODO: DALI permute have bugs, use pytorch change format to "NCHW"
@@ -128,5 +127,5 @@ if __name__ == '__main__':
 
     # Save eval result to disk
     model_name = model.__class__.__name__
-    with open('experiments/%s/%s.json' % (model_name, model_name), 'w') as result_file:
+    with open('experiments/%s/%s_metric_30000_iter.json' % (model_name, model_name), 'w') as result_file:
         json.dump(eval_reuslt, result_file, indent=4)

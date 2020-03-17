@@ -24,7 +24,8 @@ class FocalLoss(nn.Module):
 
         # generate one hot label
         one_hot_label = torch.tensor(
-            np.eye(self.num_classes, dtype = np.uint8)[flatten_label.numpy()],
+            np.eye(self.num_classes, dtype = np.uint8)[flatten_label.cpu().numpy()],
+            device = label.device
         )
 
         # reshape one_hot_label

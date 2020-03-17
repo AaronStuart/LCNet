@@ -2,7 +2,7 @@ import torch
 
 from loss.boundary import BoundaryMask
 from loss.focal_loss import FocalLoss
-from loss.metric_loss import MetricLoss
+from loss.metric_loss import RankedListLoss
 
 
 class LossFactory(object):
@@ -30,7 +30,7 @@ class LossFactory(object):
         # extra metric loss option
         if use_metric_loss and cur_iter >= warm_up_iters:
             # only use focal loss when warm up
-            self.metric_loss = MetricLoss()
+            self.metric_loss = RankedListLoss()
 
     def compute_loss(self, logits, target):
         """
@@ -54,7 +54,7 @@ class LossFactory(object):
         # metric loss
         metric_loss = torch.tensor(0.0)
         if self.use_metric_loss and self.cur_iter > self.warm_up_iters:
-            metric_loss = self.metric_loss.compute_metric_loss(logits, target)
+            metric_loss = self.metric_loss.compute_loss(logits, target)
 
         # weighted loss
         total_loss = focal_loss_return['loss_mean'] + self.boundary_loss_weight * boundary_loss + self.metric_loss_weight * metric_loss

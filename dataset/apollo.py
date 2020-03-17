@@ -64,12 +64,12 @@ class ApolloPipeline(Pipeline):
 
         self.input_resize = ops.Resize(
             device='gpu', image_type=types.RGB,
-            resize_x=1024, resize_y=512,
+            resize_longer = 800,
             interp_type=types.INTERP_LINEAR
         )
         self.label_resize = ops.Resize(
             device='gpu', image_type=types.GRAY,
-            resize_x=1024, resize_y=512,
+            resize_longer = 800,
             interp_type=types.INTERP_NN
         )
 
@@ -130,6 +130,7 @@ class ApolloDaliDataset(object):
             dataset_pipeline,
             output_map=['input', 'label'],
             size=file_iterator.size,
+            auto_reset=True,
             last_batch_padded=True,
             fill_last_batch=False
         )

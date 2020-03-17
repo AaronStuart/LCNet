@@ -1,75 +1,112 @@
+import random
+
 import torch
-import cv2 as cv
-import numpy as np
+from memory_profiler import profile
+from line_profiler import LineProfiler
+from tqdm import tqdm
 
-from scripts.apollo_label import color2trainId
+from scripts.apollo_label import valid_trainIds
 
 
-class MetricLoss:
-    def __init__(self, alpha = 1.2, margin = 0.4):
-        super(MetricLoss, self).__init__()
+class RankedListLoss(object):
+    def __init__(self, alpha=1.2, margin=0.4, T=10, lamb=1):
+        super(RankedListLoss, self).__init__()
         self.alpha = alpha
-        self.margin = margin
+        self.m = margin
+        self.T = T
+        self.lamb = lamb
 
-    def compute_metric_loss(self, logits, label):
-        # L2 Normalize
-        normed_logits = logits / torch.norm(logits, p = 2, dim = 1, keepdim = True)
 
-        # reshape to [N, C, H*W] format
-        N, C, H, W = label.shape
-        flat_label = label.reshape(shape = (N, -1, H * W))
-        flat_logits = normed_logits.reshape(shape = (N, -1, H * W))
+    def euclidean_distance(self, feature, logits):
+        """Compute euclidean distance between pixels
 
-        batch_positive_loss, batch_negative_loss = 0, 0
-        for i in range(N):
-            unique_classes = torch.unique(label[i])
-            positive_loss, negative_loss = 0, 0
-            for j in unique_classes:
-                # collect positive set and negative set
-                pos_indexes = torch.nonzero(flat_label[i, 0] == j).numpy().squeeze()
-                neg_indexes = torch.nonzero(flat_label[i, 0] != j).numpy().squeeze()
-                try:
-                    positives = flat_logits[i, :, pos_indexes].transpose(0, 1)
-                except:
-                    print("flat_logits.shape", flat_logits.shape)
-                    print("flat_logits[i, :, pos_indexes].shape", flat_logits[i, :, pos_indexes].shape)
-                negatives = flat_logits[i, :, neg_indexes].transpose(0, 1)
+        :param feature: torch tensor, shape is [num_classes, 1]
+        :param logits: torch tensor, shape is [num_classes, H * W]
+        :return: euclidean vector, shape is [H * W]
+        """
+        # compute euclidean distance
+        dist = torch.pow(feature - logits, 2).sum(dim = 0).clamp(min = 1e-12).sqrt().view(-1)
 
-                # random select an anchor
-                random_index = np.random.choice(pos_indexes)
-                anchor = torch.unsqueeze(flat_logits[i, :, random_index], dim = 0)
+        return dist
 
-                # calculate max inner-class distance
-                max_inner_distance = torch.dist(anchor, positives).max()
-                positive_loss += max_inner_distance if max_inner_distance > (self.alpha - self.margin) else 0
 
-                # calculate min between-class distance
-                min_between_distance = torch.dist(anchor, negatives).min()
-                negative_loss += min_between_distance if min_between_distance < self.alpha else 0
+    def compute_single_image_loss(self, logits, label):
+        """
 
-            batch_positive_loss += positive_loss / len(unique_classes)
-            batch_negative_loss += negative_loss / len(unique_classes)
+        :param logits: torch tensor, shape is [num_classes, H, W]
+        :param label: torch tesnor, shape is [1, H, W]
+        :return:
+        """
+        total_loss = torch.tensor(0.0, device=label.device)
 
-        batch_positive_loss = batch_positive_loss / N
-        batch_negative_loss = batch_negative_loss / N
+        # flatten logits and label
+        C, H, W = logits.shape
+        logits = logits.view(C, -1)
+        label = label.view(-1)
 
-        batch_loss = batch_positive_loss + batch_negative_loss
+        unique_classes = label.unique()
+        for label_value in unique_classes:
+            # get all index of one class
+            index = torch.nonzero(label == label_value)
 
-        return batch_loss
+            # random select one pixel for each class to query
+            random_index = random.choice(index)
+
+            # Compute positve pairs' weight
+            distances = self.euclidean_distance(logits[:, random_index], logits)
+            positive_weight = torch.where(
+                (label == label_value) * (distances > self.alpha - self.m),
+                torch.exp(self.T * (distances - (self.alpha - self.m))),
+                torch.tensor(0.0, device=label.device)
+            )
+
+            # Compute positive pair loss
+            weight_sum = torch.sum(positive_weight)
+            loss_positive = torch.sum(
+                (positive_weight / weight_sum) * (distances - (self.alpha - self.m))
+            ) if weight_sum != 0 else 0
+
+            # Compute negative pairs' weight
+            negative_weight = torch.where(
+                (label != label_value) * (distances < self.alpha),
+                torch.exp(self.T * (self.alpha - distances)),
+                torch.tensor(0.0, device=label.device)
+            )
+
+            # Compute negative pair loss
+            weight_sum = torch.sum(negative_weight)
+            loss_negative = torch.sum(
+                (negative_weight / weight_sum) * (self.alpha - distances)
+            ) if weight_sum != 0 else 0
+
+            loss_rll = loss_positive + self.lamb * loss_negative
+
+            # update state
+            total_loss += loss_rll
+
+        return total_loss / len(unique_classes)
+
+
+    def compute_loss(self, logits, label):
+        """
+
+        :param logits: torch tensor, shape is [N, num_classes, H, W]
+        :param label: torch tesnor, shape is [N, 1, H, W]
+        :return:
+        """
+
+        # Normalize feature vectors
+        logits = logits / torch.norm(logits, p=2, dim=1, keepdim=True)
+
+        loss = torch.tensor(0.0, device=label.device)
+        for i in range(label.shape[0]):
+            loss = loss + self.compute_single_image_loss(logits[0], label[0])
+
+        return loss / label.shape[0]
+
 
 if __name__ == '__main__':
-    label_bgr = cv.imread(
-        "/media/stuart/data/dataset/Apollo/Lane_Detection/Labels_road04/Label/Record001/Camera 5/171206_053953494_Camera_5_bin.png",
-        cv.IMREAD_UNCHANGED)
-    # create a black train_id_label
-    canvas = np.zeros(label_bgr.shape[:2], dtype=np.uint8)
-    for color, trainId in color2trainId.items():
-        # map color to trainId
-        mask = (label_bgr == color[::-1]).all(axis=2)
-        canvas[mask] = trainId
-    canvas = np.expand_dims(canvas, axis=0)
-    canvas = np.expand_dims(canvas, axis=0)
-    label = torch.tensor(canvas)
-    logits = torch.rand(1, 38, label.shape[2], label.shape[3])
-
-    print(MetricLoss().compute_metric_loss(logits, label)['loss_mean'])
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logits = torch.rand([1, 38, 800, 800], requires_grad=True)
+    label = torch.randint(low=0, high=37, size=[1, 1, 800, 800])
+    print(RankedListLoss().compute_loss(logits.to(device), label.to(device)))

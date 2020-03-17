@@ -17,7 +17,7 @@ parser.add_argument("--num_classes", type=int, default=38)
 
 #############  Data  #############
 parser.add_argument("--dataset_root_dir", type=str, default="/media/stuart/data/dataset/Apollo/Lane_Detection")
-parser.add_argument("--train_file", type=str, default='./dataset/train_apollo_gray.txt')
+parser.add_argument("--train_file", type=str, default='./dataset/small.txt')
 parser.add_argument("--num_threads", type=int, default=1)
 
 #############  Loss  #############
@@ -25,14 +25,14 @@ parser.add_argument("--use_boundary_loss", type=bool, default=False)
 parser.add_argument("--boundary_loss_weight", type=float, default=1)
 
 parser.add_argument("--use_metric_loss", type=bool, default=False)
-parser.add_argument("--metric_loss_weight", type=float, default=0.001)
+parser.add_argument("--metric_loss_weight", type=float, default=0.1)
 
 ############# Train  #############
-parser.add_argument("--epochs", type=int, default=1)
-parser.add_argument("--batch_size", type=int, default=3)
-parser.add_argument("--warm_up_iters", type=int, default=0)
+parser.add_argument("--epochs", type=int, default=6)
+parser.add_argument("--batch_size", type=int, default=2)
+parser.add_argument("--warm_up_iters", type=int, default=1000)
 parser.add_argument("--learning_rate", type=float, default=0.001)
-parser.add_argument("--pretrained_weights", type=str, default='/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/DeepLabV3_epoch_0_iter_1000.pth')
+parser.add_argument("--pretrained_weights", type=str)
 parser.add_argument("--save_interval", type=int, default=1000, help="How many iterations are saved once?")
 parser.add_argument("--visualize_interval", type=int, default=100, help="How many iterations are visualized once?")
 
@@ -40,6 +40,9 @@ args = parser.parse_args()
 print(args)
 
 def main():
+    torch.backends.cudnn.enabled = True
+    torch.backends.cudnn.benchmark = True
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Define model
@@ -90,16 +93,16 @@ def main():
     # Train
     for epoch in range(restart_epoch, args.epochs):
         for iter, data in enumerate(train_iterator, restart_iter):
-            # TODO: DALI permute have bugs, use pytorch change format to "NCHW"
-            # TODO: DALI's RGB image have changed to BGR sequence, after go through Pytorch, maybe a bug
+            # Note: DALI permute have bugs, use pytorch change format to "NCHW"
+            # Note: DALI's RGB image have changed to BGR sequence, after go through Pytorch, maybe a bug
             input = data[0]['input'].permute(0, 3, 1, 2)[:, [2, 1, 0], :, :]
             label = data[0]['label'].permute(0, 3, 1, 2)
 
             # train model
             optimizer.zero_grad()
 
-            # get model experiments
-            logits = model(input.to(device))['out'].cpu()
+            # forward compute
+            logits = model(input.to(device))['out']
 
             # Loss function depend on iter
             loss = LossFactory(
@@ -107,7 +110,7 @@ def main():
                 num_classes=args.num_classes,
                 use_boundary_loss=args.use_boundary_loss, boundary_loss_weight=args.boundary_loss_weight,
                 use_metric_loss=args.use_metric_loss, metric_loss_weight=args.metric_loss_weight
-            ).compute_loss(logits.cpu(), label.cpu())
+            ).compute_loss(logits, label)
 
             # update weights
             loss['total_loss'].backward()
@@ -140,23 +143,29 @@ def main():
                     os.path.join(save_path, '%s_epoch_%d_iter_%d.pth' % (model.__class__.__name__, epoch, iter))
                 )
                 print('Finish save checkpoint.')
+                if iter == 30000:
+                    torch.save(
+                        model,
+                        os.path.join(save_path, '%s_focal_%d_iter.pth' % (model.__class__.__name__, iter))
+                    )
 
-    # Save entire model
-    model_save_path = "experiments/%s" % model.__class__.__name__
-    if not os.path.exists(model_save_path):
-        os.makedirs(model_save_path)
-
-    torch.save(
-        model,
-        os.path.join(model_save_path, '%s_final.pth' % model.__class__.__name__)
-    )
-    print("Save final model to %s" % model_save_path)
+    # # Save entire model
+    # model_save_path = "experiments/%s" % model.__class__.__name__
+    # if not os.path.exists(model_save_path):
+    #     os.makedirs(model_save_path)
+    #
+    # torch.save(
+    #     model,
+    #     os.path.join(model_save_path, '%s_final.pth' % model.__class__.__name__)
+    # )
+    # print("Save final model to %s" % model_save_path)
 
 if __name__ == '__main__':
-    lp = LineProfiler()
-    lp.add_function(LossFactory.compute_loss)
-    lp.add_function(FocalLoss.compute_focal_loss)
-    lp.add_function(TrainVisualize.update)
-    lp_wrapper = lp(main)
-    lp_wrapper()
-    lp.print_stats()
+    with torch.autograd.set_detect_anomaly(True):
+        lp = LineProfiler()
+        lp.add_function(LossFactory.compute_loss)
+        lp.add_function(FocalLoss.compute_focal_loss)
+        lp.add_function(TrainVisualize.update)
+        lp_wrapper = lp(main)
+        lp_wrapper()
+        lp.print_stats()
