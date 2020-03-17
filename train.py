@@ -25,7 +25,7 @@ parser.add_argument("--use_boundary_loss", type=bool, default=False)
 parser.add_argument("--boundary_loss_weight", type=float, default=1)
 
 parser.add_argument("--use_metric_loss", type=bool, default=False)
-parser.add_argument("--metric_loss_weight", type=float, default=0.1)
+parser.add_argument("--metric_loss_weight", type=float, default=1)
 
 ############# Train  #############
 parser.add_argument("--epochs", type=int, default=6)
@@ -114,7 +114,7 @@ def main():
             # update weights
             loss['total_loss'].backward()
             optimizer.step()
-            print(loss)
+            print('epoch %d iter %d: ' % (epoch, iter), loss)
 
             # visualize train process
             if iter % args.visualize_interval == 0:
