@@ -93,10 +93,9 @@ def main():
     # Train
     for epoch in range(restart_epoch, args.epochs):
         for iter, data in enumerate(train_iterator, restart_iter):
-            # Note: DALI permute have bugs, use pytorch change format to "NCHW"
             # Note: DALI's RGB image have changed to BGR sequence, after go through Pytorch, maybe a bug
-            input = data[0]['input'].permute(0, 3, 1, 2)[:, [2, 1, 0], :, :]
-            label = data[0]['label'].permute(0, 3, 1, 2)
+            input = data[0]['input'][:, [2, 1, 0], :, :]
+            label = data[0]['label']
 
             # train model
             optimizer.zero_grad()

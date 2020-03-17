@@ -72,6 +72,10 @@ class ApolloPipeline(Pipeline):
             resize_longer = 800,
             interp_type=types.INTERP_NN
         )
+        self.transpose = ops.Transpose(
+            device='gpu',
+            perm=[2, 0, 1]
+        )
 
         self.change_type = ops.Cast(device='gpu', dtype=types.FLOAT)
 
@@ -81,12 +85,14 @@ class ApolloPipeline(Pipeline):
         inputs = self.rgb_decode(self.jpegs)
         inputs = self.input_resize(inputs)
         inputs = self.change_type(inputs)
+        inputs = self.transpose(inputs)
 
         # label preprocess
         self.labels = self.input_label()
         labels = self.gray_decode(self.labels)
         if self.is_train:
             labels = self.label_resize(labels)
+        labels = self.transpose(labels)
 
         return (inputs, labels)
 

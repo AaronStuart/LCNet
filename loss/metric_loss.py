@@ -1,11 +1,6 @@
 import random
 
 import torch
-from memory_profiler import profile
-from line_profiler import LineProfiler
-from tqdm import tqdm
-
-from scripts.apollo_label import valid_trainIds
 
 
 class RankedListLoss(object):
