@@ -21,10 +21,7 @@ parser.add_argument("--train_file", type=str, default='./dataset/small.txt')
 parser.add_argument("--num_threads", type=int, default=1)
 
 #############  Loss  #############
-parser.add_argument("--use_boundary_loss", type=bool, default=False)
-parser.add_argument("--boundary_loss_weight", type=float, default=1)
-
-parser.add_argument("--use_metric_loss", type=bool, default=False)
+parser.add_argument("--use_metric_loss", type=bool, default=True)
 parser.add_argument("--metric_loss_weight", type=float, default=1)
 
 ############# Train  #############
@@ -35,91 +32,165 @@ parser.add_argument("--learning_rate", type=float, default=0.001)
 parser.add_argument("--pretrained_weights", type=str)
 parser.add_argument("--save_interval", type=int, default=1000, help="How many iterations are saved once?")
 parser.add_argument("--visualize_interval", type=int, default=100, help="How many iterations are visualized once?")
+parser.add_argument("--log_dir", type=str, default='/media/stuart/data/events')
+parser.add_argument("--weights_save_dir", type=str, default='./weights')
 
 args = parser.parse_args()
 print(args)
 
-def main():
-    torch.backends.cudnn.enabled = True
-    torch.backends.cudnn.benchmark = True
+class Train(object):
+    def __init__(self, num_class, use_metric_loss, metric_loss_weight, weights_save_dir):
+        self.num_class = num_class
+        self.use_metric_loss = use_metric_loss
+        self.metric_loss_weight = metric_loss_weight
+        self.weights_save_dir = weights_save_dir
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Define model
-    # model = UNet(in_channels=3, num_classes=args.num_classes, bilinear=True, init_weights=True).to(device)
-    # model = torchvision.models.segmentation.fcn_resnet50(num_classes=args.num_classes).to(device)
-    model = torchvision.models.segmentation.deeplabv3_resnet50(
-        pretrained = False,
-        num_classes = args.num_classes
-    ).to(device).train()
+        self.model = self.get_model('DeepLabV3', args.num_classes).to(self.device).train()
 
-    # Define visualizer
-    train_visualizer = TrainVisualize(
-        log_dir=os.path.join('/media/stuart/data/events', model.__class__.__name__),
-        model=model,
-        use_boundary_loss=False,
-        use_metric_loss=False
-    )
+        self.optimizer = self.get_optimizer()
 
-    # Define optimizer
-    optimizer = optim.Adam(
-        model.parameters(),
-        lr=args.learning_rate
-    )
+        self.loss = self.get_loss()
 
-    # Start from checkpoints if specified
-    restart_epoch, restart_iter = 0, 0
-    if args.pretrained_weights:
-        # load checkpoint file
-        checkpoint = torch.load(args.pretrained_weights)
+        self.dataloader = self.get_dataloader(
+            dataset_dir = args.dataset_root_dir,
+            file_path = args.train_file,
+            batch_size = args.batch_size,
+            num_threads = args.num_threads,
+            is_train = True
+        )
 
-        # restore
-        model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        restart_epoch = checkpoint['epoch']
-        restart_iter = checkpoint['iteration']
+        self.visualizer = self.get_visualizer(args.log_dir)
 
-        print("Load %s successfully." % args.pretrained_weights)
+    def get_model(self, model_name, num_classes):
+        """"""
+        assert model_name in ['DeepLabV3', 'FCN'], "model name doesn't exist"
 
-    # Get Dali dataloader
-    train_iterator = ApolloDaliDataset(
-        root_dir = args.dataset_root_dir,
-        file_path = args.train_file,
-        batch_size = args.batch_size,
-        num_threads = args.num_threads,
-        is_train = True
-    ).getIterator()
+        if model_name == 'DeepLabV3':
+            model = torchvision.models.segmentation.deeplabv3_resnet50(
+                pretrained = False,
+                num_classes = num_classes
+            )
+        if model_name == 'FCN':
+            model = torchvision.models.segmentation.fcn_resnet50(
+                pretrained = False,
+                num_classes = num_classes
+            )
 
-    # Train
-    for epoch in range(restart_epoch, args.epochs):
-        for iter, data in enumerate(train_iterator, restart_iter):
+        return model
+
+    def get_optimizer(self, learning_rate = 0.01):
+        """"""
+        optimizer = optim.Adam(
+            params = self.model.parameters(),
+            lr = learning_rate
+        )
+
+        return optimizer
+
+    def get_loss(self):
+        """"""
+        loss = LossFactory(
+            num_classes = self.num_class,
+            use_metric_loss = self.use_metric_loss,
+            metric_loss_weight = self.metric_loss_weight
+        )
+
+        return loss
+
+    def get_dataloader(self, dataset_dir, file_path, batch_size=1, num_threads=1, is_train=True):
+        """"""
+        if not os.path.exists(dataset_dir):
+            print("%s doesn't exist." % dataset_dir)
+            return
+        if not os.path.exists(file_path):
+            print("%s doesn't exist." % file_path)
+            return
+
+        # Get Dali dataloader
+        train_iterator = ApolloDaliDataset(
+            root_dir = dataset_dir,
+            file_path = file_path,
+            batch_size = batch_size,
+            num_threads = num_threads,
+            is_train = is_train
+        ).getIterator()
+
+        return train_iterator
+
+    def get_visualizer(self, log_dir):
+        """"""
+        visualizer = TrainVisualize(
+            log_dir = os.path.join(log_dir, self.model.__class__.__name__),
+            model = self.model
+        )
+
+        return visualizer
+
+    def load_checkpoint(self, ckpt_path):
+        """"""
+        if not os.path.exists(ckpt_path):
+            print("%s not exist, train from scratch." % ckpt_path)
+            return
+
+        checkpoint = torch.load(ckpt_path)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        iteration = checkpoint['iteration']
+
+        print("Load from %s successfully." % ckpt_path)
+        return iteration
+
+    def save_checkpoint(self, iter):
+        """"""
+        ckpt_dir = os.path.join(os.path.abspath(self.weights_save_dir), self.model.__class__.__name__)
+        if not os.path.exists(ckpt_dir):
+            os.makedirs(ckpt_dir)
+
+        # save model weights, optimizer status, and train iteration
+        save_dict = {
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'iteration': iter
+        }
+        ckpt_path = os.path.join(ckpt_dir, 'iter_%d.pth' % iter)
+
+        torch.save(save_dict, ckpt_path)
+        print("Save checkpoint to %s" % ckpt_path)
+
+    def run(self):
+        """"""
+        torch.backends.cudnn.enabled = True
+        torch.backends.cudnn.benchmark = True
+
+        iter = 0
+        if args.pretrained_weights:
+            iter = self.load_checkpoint(args.pretrained_weights)
+
+        for data in self.dataloader:
+            iter += 1
+
             # Note: DALI's RGB image have changed to BGR sequence, after go through Pytorch, maybe a bug
-            input = data[0]['input'][:, [2, 1, 0], :, :]
-            label = data[0]['label']
+            input, label = data[0]['input'][:, [2, 1, 0], :, :].to(self.device), data[0]['label'].to(self.device)
 
-            # train model
-            optimizer.zero_grad()
+            # run forward
+            self.optimizer.zero_grad()
+            logits = self.model(input)['out']
 
-            # forward compute
-            logits = model(input.to(device))['out']
-
-            # Loss function depend on iter
-            loss = LossFactory(
-                cur_iter=iter, warm_up_iters=args.warm_up_iters,
-                num_classes=args.num_classes,
-                use_boundary_loss=args.use_boundary_loss, boundary_loss_weight=args.boundary_loss_weight,
-                use_metric_loss=args.use_metric_loss, metric_loss_weight=args.metric_loss_weight
-            ).compute_loss(logits, label)
-
-            # update weights
+            # compute loss, backward, update weights
+            loss = self.loss.compute_loss(logits, label, iter, args.warm_up_iters)
             loss['total_loss'].backward()
-            optimizer.step()
-            print('epoch %d iter %d: ' % (epoch, iter), loss)
+            self.optimizer.step()
+
+            learning_rate = self.optimizer.state_dict()['param_groups'][0]['lr']
+            print('iter %d: lr = %.5f, ' % (iter, learning_rate), loss)
 
             # visualize train process
             if iter % args.visualize_interval == 0:
-                train_visualizer.update(
+                self.visualizer.update(
                     iteration=iter,
+                    learning_rate = learning_rate,
                     input=input[0].cpu(),
                     label=label[0].cpu(),
                     logits=logits[0].detach().cpu(),
@@ -127,44 +198,14 @@ def main():
                 )
 
             # save checkpoint
-            if iter != 0 and iter % args.save_interval == 0:
-                save_path = "weights/%s" % model.__class__.__name__
-                if not os.path.exists(save_path):
-                    os.makedirs(save_path)
+            if iter % args.save_interval == 0:
+                self.save_checkpoint(iter)
 
-                torch.save(
-                    {
-                        'model_state_dict': model.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'epoch': epoch,
-                        'iteration': iter
-                    },
-                    os.path.join(save_path, '%s_epoch_%d_iter_%d.pth' % (model.__class__.__name__, epoch, iter))
-                )
-                print('Finish save checkpoint.')
-                if iter == 30000:
-                    torch.save(
-                        model,
-                        os.path.join(save_path, '%s_focal_%d_iter.pth' % (model.__class__.__name__, iter))
-                    )
-
-    # # Save entire model
-    # model_save_path = "experiments/%s" % model.__class__.__name__
-    # if not os.path.exists(model_save_path):
-    #     os.makedirs(model_save_path)
-    #
-    # torch.save(
-    #     model,
-    #     os.path.join(model_save_path, '%s_final.pth' % model.__class__.__name__)
-    # )
-    # print("Save final model to %s" % model_save_path)
 
 if __name__ == '__main__':
-    with torch.autograd.set_detect_anomaly(True):
-        lp = LineProfiler()
-        lp.add_function(LossFactory.compute_loss)
-        lp.add_function(FocalLoss.compute_focal_loss)
-        lp.add_function(TrainVisualize.update)
-        lp_wrapper = lp(main)
-        lp_wrapper()
-        lp.print_stats()
+    Train(
+        num_class = args.num_classes,
+        use_metric_loss = args.use_metric_loss,
+        metric_loss_weight = args.metric_loss_weight,
+        weights_save_dir = args.weights_save_dir
+    ).run()

@@ -33,22 +33,12 @@ class FocalLoss(nn.Module):
 
         return one_hot_label
 
-    def compute_focal_loss(self, input, label):
+    def compute_loss(self, input, label):
         '''
             :param input: shape [N, C, H, W] 经过Softmax后的输出
             :param target: shape [N, 1, H, W]
             :return: shape of [N, 1, H, W]
             '''
-        # # calculate class weights
-        # frequency = torch.Tensor([torch.sum(label == i) for i in range(self.num_classes)])
-        # classWeights = self.compute_class_weights(frequency)
-        #
-        # # generate classWeights mask
-        # weightsMask = torch.zeros_like(label, dtype = torch.float)
-        # for i in range(self.num_classes):
-        #     mask = label == i
-        #     #TODO: need fast
-        #     weightsMask[mask] = classWeights[i]
 
         one_hot_label = self.get_one_hot_label(label)
 
@@ -58,10 +48,7 @@ class FocalLoss(nn.Module):
         # focal_loss = -1 * weightsMask * torch.pow((1 - p_t), self.gamma) * torch.log(p_t)
         focal_loss = -1 * torch.pow((1 - p_t), self.gamma) * torch.log(p_t)
 
-        return {
-            'focal_loss' : focal_loss,
-            'loss_mean' : focal_loss.mean()
-        }
+        return focal_loss.mean()
 
 if __name__ == '__main__':
     predict = np.ndarray(shape=[2, 38, 100, 100])

@@ -9,19 +9,18 @@ from scripts.apollo_label import trainId2color, trainId2name
 
 
 class TrainVisualize:
-    def __init__(self, log_dir, model, use_boundary_loss, use_metric_loss):
+    def __init__(self, log_dir, model):
         self.model = model
         self.summary = SummaryWriter(
             logdir=os.path.join(log_dir, "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now()))
         )
-        self.use_boundary_loss = use_boundary_loss
-        self.use_metric_loss = use_metric_loss
 
-    def update(self, iteration, input, label, logits, loss):
+    def update(self, iteration, learning_rate, input, label, logits, loss):
         label = torch.squeeze(label)
         predict = torch.argmax(logits, axis=0)
         H, W = label.shape
-        # map trainId to color
+
+        # map predict to color
         predict_color = torch.zeros(size=[3, H, W], dtype=torch.uint8)
         for trainId, rgb in trainId2color.items():
             mask = (predict == trainId)
@@ -29,15 +28,25 @@ class TrainVisualize:
             predict_color[1][mask] = rgb[1]
             predict_color[2][mask] = rgb[2]
 
+        # map label to color
+        label_color = torch.zeros(size=[3, H, W], dtype=torch.uint8)
+        for trainId, rgb in trainId2color.items():
+            mask = (label == trainId)
+            label_color[0][mask] = rgb[0]
+            label_color[1][mask] = rgb[1]
+            label_color[2][mask] = rgb[2]
+
+        # learning rate visualize
+        self.summary.add_scalar('learning_rate', learning_rate, iteration)
+
         # loss visualize
         self.summary.add_scalar('loss/total_loss', loss['total_loss'], iteration)
         self.summary.add_scalar('loss/focal_loss', loss['focal_loss'], iteration)
-        self.summary.add_scalar('loss/boundary_loss', loss['boundary_loss'], iteration)
         self.summary.add_scalar('loss/metric_loss', loss['metric_loss'], iteration)
 
         # input experiments visualize
         self.summary.add_image('image/input', vutils.make_grid(input.to(torch.uint8)), iteration)
-        self.summary.add_image('image/label', vutils.make_grid(label), iteration)
+        self.summary.add_image('image/label', vutils.make_grid(label_color), iteration)
         self.summary.add_image('image/predict', vutils.make_grid(predict_color), iteration)
 
         # weight visualize
