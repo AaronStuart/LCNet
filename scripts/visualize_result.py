@@ -43,3 +43,9 @@ if __name__ == '__main__':
             'DeepLabV3': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/DeepLabV3.json'
         }
     )
+    # multi_json_visualize(
+    #     json_path_dict={
+    #         'metric': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/metric_100000_iter.json',
+    #         'focal': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/focal_100000_iter.json',
+    #     }
+    # )

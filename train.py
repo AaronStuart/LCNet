@@ -1,14 +1,12 @@
 import argparse
 import os
-import cv2 as cv
+
 import torch
 import torchvision
-from line_profiler import LineProfiler
 from torch import optim
 
 from dataset.apollo import ApolloDaliDataset
 from loss.LossFactory import LossFactory
-from loss.focal_loss import FocalLoss
 from scripts.visualize_train import TrainVisualize
 
 parser = argparse.ArgumentParser()
@@ -18,7 +16,7 @@ parser.add_argument("--num_classes", type=int, default=38)
 #############  Data  #############
 parser.add_argument("--dataset_root_dir", type=str, default="/media/stuart/data/dataset/Apollo/Lane_Detection")
 parser.add_argument("--train_file", type=str, default='./dataset/small.txt')
-parser.add_argument("--num_threads", type=int, default=1)
+parser.add_argument("--num_threads", type=int, default=8)
 
 #############  Loss  #############
 parser.add_argument("--use_metric_loss", type=bool, default=True)
@@ -28,18 +26,19 @@ parser.add_argument("--metric_loss_weight", type=float, default=1)
 parser.add_argument("--epochs", type=int, default=6)
 parser.add_argument("--batch_size", type=int, default=2)
 parser.add_argument("--warm_up_iters", type=int, default=1000)
-parser.add_argument("--learning_rate", type=float, default=0.001)
-parser.add_argument("--pretrained_weights", type=str)
-parser.add_argument("--save_interval", type=int, default=1000, help="How many iterations are saved once?")
+parser.add_argument("--learning_rate", type=float, default=0.01)
+parser.add_argument("--pretrained_weights", type=str, default='/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/iter_100000.pth')
+parser.add_argument("--save_interval", type=int, default=5000, help="How many iterations are saved once?")
 parser.add_argument("--visualize_interval", type=int, default=100, help="How many iterations are visualized once?")
 parser.add_argument("--log_dir", type=str, default='/media/stuart/data/events')
-parser.add_argument("--weights_save_dir", type=str, default='./weights')
-
+parser.add_argument("--weights_save_dir", type=str, default='/media/stuart/data/weights')
 args = parser.parse_args()
 print(args)
 
+
 class Train(object):
     def __init__(self, num_class, use_metric_loss, metric_loss_weight, weights_save_dir):
+        """"""
         self.num_class = num_class
         self.use_metric_loss = use_metric_loss
         self.metric_loss_weight = metric_loss_weight
@@ -49,16 +48,16 @@ class Train(object):
 
         self.model = self.get_model('DeepLabV3', args.num_classes).to(self.device).train()
 
-        self.optimizer = self.get_optimizer()
+        self.optimizer = self.get_optimizer(args.learning_rate)
 
         self.loss = self.get_loss()
 
         self.dataloader = self.get_dataloader(
-            dataset_dir = args.dataset_root_dir,
-            file_path = args.train_file,
-            batch_size = args.batch_size,
-            num_threads = args.num_threads,
-            is_train = True
+            dataset_dir=args.dataset_root_dir,
+            file_path=args.train_file,
+            batch_size=args.batch_size,
+            num_threads=args.num_threads,
+            is_train=True
         )
 
         self.visualizer = self.get_visualizer(args.log_dir)
@@ -69,22 +68,22 @@ class Train(object):
 
         if model_name == 'DeepLabV3':
             model = torchvision.models.segmentation.deeplabv3_resnet50(
-                pretrained = False,
-                num_classes = num_classes
+                pretrained=False,
+                num_classes=num_classes
             )
         if model_name == 'FCN':
             model = torchvision.models.segmentation.fcn_resnet50(
-                pretrained = False,
-                num_classes = num_classes
+                pretrained=False,
+                num_classes=num_classes
             )
 
         return model
 
-    def get_optimizer(self, learning_rate = 0.01):
+    def get_optimizer(self, learning_rate=0.01):
         """"""
         optimizer = optim.Adam(
-            params = self.model.parameters(),
-            lr = learning_rate
+            params=self.model.parameters(),
+            lr=learning_rate
         )
 
         return optimizer
@@ -92,9 +91,9 @@ class Train(object):
     def get_loss(self):
         """"""
         loss = LossFactory(
-            num_classes = self.num_class,
-            use_metric_loss = self.use_metric_loss,
-            metric_loss_weight = self.metric_loss_weight
+            num_classes=self.num_class,
+            use_metric_loss=self.use_metric_loss,
+            metric_loss_weight=self.metric_loss_weight
         )
 
         return loss
@@ -110,11 +109,11 @@ class Train(object):
 
         # Get Dali dataloader
         train_iterator = ApolloDaliDataset(
-            root_dir = dataset_dir,
-            file_path = file_path,
-            batch_size = batch_size,
-            num_threads = num_threads,
-            is_train = is_train
+            root_dir=dataset_dir,
+            file_path=file_path,
+            batch_size=batch_size,
+            num_threads=num_threads,
+            is_train=is_train
         ).getIterator()
 
         return train_iterator
@@ -122,8 +121,8 @@ class Train(object):
     def get_visualizer(self, log_dir):
         """"""
         visualizer = TrainVisualize(
-            log_dir = os.path.join(log_dir, self.model.__class__.__name__),
-            model = self.model
+            log_dir=os.path.join(log_dir, self.model.__class__.__name__),
+            model=self.model
         )
 
         return visualizer
@@ -134,11 +133,13 @@ class Train(object):
             print("%s not exist, train from scratch." % ckpt_path)
             return
 
+        ckpt_path = os.path.abspath(ckpt_path)
         checkpoint = torch.load(ckpt_path)
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         iteration = checkpoint['iteration']
 
+        torch.save(self.model, '/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/model_focal_100000.pth')
         print("Load from %s successfully." % ckpt_path)
         return iteration
 
@@ -154,7 +155,7 @@ class Train(object):
             'optimizer_state_dict': self.optimizer.state_dict(),
             'iteration': iter
         }
-        ckpt_path = os.path.join(ckpt_dir, 'iter_%d.pth' % iter)
+        ckpt_path = os.path.join(ckpt_dir, 'metric_iter_%d.pth' % iter)
 
         torch.save(save_dict, ckpt_path)
         print("Save checkpoint to %s" % ckpt_path)
@@ -168,44 +169,45 @@ class Train(object):
         if args.pretrained_weights:
             iter = self.load_checkpoint(args.pretrained_weights)
 
-        for data in self.dataloader:
-            iter += 1
+        while True:
+            for data in self.dataloader:
+                iter += 1
 
-            # Note: DALI's RGB image have changed to BGR sequence, after go through Pytorch, maybe a bug
-            input, label = data[0]['input'][:, [2, 1, 0], :, :].to(self.device), data[0]['label'].to(self.device)
+                # Note: DALI's RGB image have changed to BGR sequence, after go through Pytorch, maybe a bug
+                input, label = data[0]['input'][:, [2, 1, 0], :, :].to(self.device), data[0]['label'].to(self.device)
 
-            # run forward
-            self.optimizer.zero_grad()
-            logits = self.model(input)['out']
+                # run forward
+                self.optimizer.zero_grad()
+                logits = self.model(input)['out']
 
-            # compute loss, backward, update weights
-            loss = self.loss.compute_loss(logits, label, iter, args.warm_up_iters)
-            loss['total_loss'].backward()
-            self.optimizer.step()
+                # compute loss, backward, update weights
+                loss = self.loss.compute_loss(logits, label, iter, args.warm_up_iters)
+                loss['total_loss'].backward()
+                self.optimizer.step()
 
-            learning_rate = self.optimizer.state_dict()['param_groups'][0]['lr']
-            print('iter %d: lr = %.5f, ' % (iter, learning_rate), loss)
+                learning_rate = self.optimizer.state_dict()['param_groups'][0]['lr']
+                print('iter %d: lr = %.5f, ' % (iter, learning_rate), loss)
 
-            # visualize train process
-            if iter % args.visualize_interval == 0:
-                self.visualizer.update(
-                    iteration=iter,
-                    learning_rate = learning_rate,
-                    input=input[0].cpu(),
-                    label=label[0].cpu(),
-                    logits=logits[0].detach().cpu(),
-                    loss=loss
-                )
+                # visualize train process
+                if iter % args.visualize_interval == 0:
+                    self.visualizer.update(
+                        iteration=iter,
+                        learning_rate=learning_rate,
+                        input=input[0].cpu(),
+                        label=label[0].cpu(),
+                        logits=logits[0].detach().cpu(),
+                        loss=loss
+                    )
 
-            # save checkpoint
-            if iter % args.save_interval == 0:
-                self.save_checkpoint(iter)
+                # save checkpoint
+                if iter % args.save_interval == 0:
+                    self.save_checkpoint(iter)
 
 
 if __name__ == '__main__':
     Train(
-        num_class = args.num_classes,
-        use_metric_loss = args.use_metric_loss,
-        metric_loss_weight = args.metric_loss_weight,
-        weights_save_dir = args.weights_save_dir
+        num_class=args.num_classes,
+        use_metric_loss=args.use_metric_loss,
+        metric_loss_weight=args.metric_loss_weight,
+        weights_save_dir=args.weights_save_dir
     ).run()

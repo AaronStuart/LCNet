@@ -1,5 +1,6 @@
 import argparse
 import json
+import pickle
 
 import cupy as cp
 import torch
@@ -12,7 +13,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--num_classes", type=int, default=38)
 parser.add_argument("--batch_size", type=int, default=1)
 parser.add_argument("--num_threads", type=int, default=1)
-parser.add_argument("--model_path", type=str)
+parser.add_argument("--model_path", type=str, default='/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/model_metric_100000.pth')
 parser.add_argument("--dataset_root_dir", type=str, default='/media/stuart/data/dataset/Apollo/Lane_Detection')
 parser.add_argument("--val_file", type=str, default='./dataset/val_apollo_gray.txt')
 args = parser.parse_args()
@@ -44,9 +45,9 @@ class Evaluation(object):
             label_mask = (label == train_id)
 
             # calculate TP FP FN
-            TP = cp.sum(label_mask * predict_mask)
-            FP = cp.sum((~label_mask) * predict_mask)
-            FN = cp.sum(label_mask * (~predict_mask))
+            TP = cp.sum(label_mask * predict_mask).item()
+            FP = cp.sum((~label_mask) * predict_mask).item()
+            FN = cp.sum(label_mask * (~predict_mask)).item()
 
             label_name = trainId2name[train_id]
             # init class, if does not exist
@@ -63,33 +64,29 @@ class Evaluation(object):
 
     def eval(self):
         with torch.no_grad():
-            for iter, data in tqdm(enumerate(self.dataloader)):
-                # TODO: DALI permute have bugs, use pytorch change format to "NCHW"
-                # TODO: DALI's RGB image have changed to BGR sequence, after go through Pytorch, maybe a bug
-                input = data[0]['input'].permute(0, 3, 1, 2)[:, [2, 1, 0], :, :].to(self.device)
-                label = data[0]['label'].permute(0, 3, 1, 2)
+            for data in tqdm(self.dataloader):
+                # Note: DALI's RGB image have changed to BGR sequence, after go through Pytorch, maybe a bug
+                input, label = data[0]['input'][:, [2, 1, 0], :, :].to(self.device), data[0]['label'].to(self.device)
 
                 # forward
                 logits = self.model(input)['out']
 
-                # resize logits to label's size
-                resized_logits = torch.nn.functional.interpolate(
-                    logits,
-                    label.shape,
-                    mode='bilinear'
-                )
-
                 # get predict
                 predict = torch.argmax(
-                    torch.nn.functional.softmax(resized_logits, dim = 1),
-                    axis = 1,
-                    keepdim = True
-                )
+                    torch.nn.functional.softmax(logits, dim=1),
+                    axis=1,
+                    keepdim=True
+                ).to(torch.float)
+
+                # resize predict to label's size
+                predict = torch.nn.functional.interpolate(
+                    predict,
+                    label.shape[-2:],
+                    mode='nearest'
+                ).to(torch.uint8)
 
                 # accumulate on batch
                 self.accumulateOnBatch(predict.cpu().numpy(), label.cpu().numpy())
-
-                print('Batch %d processed successful.' % iter * input.shape[0])
 
         # calculate IoU for each class
         for class_name, class_dict in self.final_result.items():
@@ -125,7 +122,9 @@ if __name__ == '__main__':
         dataloader=val_iterator
     ).eval()
 
+    print(eval_reuslt)
+
     # Save eval result to disk
     model_name = model.__class__.__name__
-    with open('experiments/%s/%s_metric_30000_iter.json' % (model_name, model_name), 'w') as result_file:
+    with open('experiments/%s/metric_100000_iter.json' % model_name, 'w') as result_file:
         json.dump(eval_reuslt, result_file, indent=4)
