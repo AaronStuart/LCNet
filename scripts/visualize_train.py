@@ -43,8 +43,9 @@ class TrainVisualize:
         self.summary.add_scalar('loss/total_loss', loss['total_loss'], iteration)
         self.summary.add_scalar('loss/focal_loss', loss['focal_loss'], iteration)
         self.summary.add_scalar('loss/metric_loss', loss['metric_loss'], iteration)
+        self.summary.add_scalar('loss/cluster_loss', loss['cluster_loss'], iteration)
 
-        # input experiments visualize
+        # input visualize
         self.summary.add_image('image/input', vutils.make_grid(input.to(torch.uint8)), iteration)
         self.summary.add_image('image/label', vutils.make_grid(label_color), iteration)
         self.summary.add_image('image/predict', vutils.make_grid(predict_color), iteration)

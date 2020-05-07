@@ -36,16 +36,22 @@ def multi_json_visualize(json_path_dict):
 
 
 if __name__ == '__main__':
-    multi_json_visualize(
-        json_path_dict={
-            'U-Net': '/home/stuart/PycharmProjects/LCNet/experiments/UNet/UNet.json',
-            'FCN': '/home/stuart/PycharmProjects/LCNet/experiments/FCN/FCN.json',
-            'DeepLabV3': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/DeepLabV3.json'
-        }
-    )
+    # multi_json_visualize(
+    #     json_path_dict={
+    #         'U-Net': '/home/stuart/PycharmProjects/LCNet/experiments/UNet/UNet.json',
+    #         'FCN': '/home/stuart/PycharmProjects/LCNet/experiments/FCN/FCN.json',
+    #         'DeepLabV3': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/DeepLabV3.json'
+    #     }
+    # )
     # multi_json_visualize(
     #     json_path_dict={
     #         'metric': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/metric_100000_iter.json',
     #         'focal': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/focal_100000_iter.json',
     #     }
     # )
+    multi_json_visualize(
+        json_path_dict={
+            'pretrained': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/focal_100000_iter_pretrained.json',
+            'no_pretrained': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/focal_100000_iter.json'
+        }
+    )

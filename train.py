@@ -19,17 +19,20 @@ parser.add_argument("--train_file", type=str, default='./dataset/small.txt')
 parser.add_argument("--num_threads", type=int, default=8)
 
 #############  Loss  #############
-parser.add_argument("--use_metric_loss", type=bool, default=True)
+parser.add_argument("--use_metric_loss", type=bool, default=False)
 parser.add_argument("--metric_loss_weight", type=float, default=1)
+
+parser.add_argument("--use_cluster_loss", type=bool, default=True)
+parser.add_argument("--cluster_loss_weight", type=float, default=1)
 
 ############# Train  #############
 parser.add_argument("--epochs", type=int, default=6)
 parser.add_argument("--batch_size", type=int, default=2)
-parser.add_argument("--warm_up_iters", type=int, default=1000)
+parser.add_argument("--warm_up_iters", type=int, default=10000)
 parser.add_argument("--learning_rate", type=float, default=0.01)
-parser.add_argument("--pretrained_weights", type=str, default='/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/iter_100000.pth')
+parser.add_argument("--pretrained_weights", type=str)
 parser.add_argument("--save_interval", type=int, default=5000, help="How many iterations are saved once?")
-parser.add_argument("--visualize_interval", type=int, default=100, help="How many iterations are visualized once?")
+parser.add_argument("--visualize_interval", type=int, default=500, help="How many iterations are visualized once?")
 parser.add_argument("--log_dir", type=str, default='/media/stuart/data/events')
 parser.add_argument("--weights_save_dir", type=str, default='/media/stuart/data/weights')
 args = parser.parse_args()
@@ -37,11 +40,20 @@ print(args)
 
 
 class Train(object):
-    def __init__(self, num_class, use_metric_loss, metric_loss_weight, weights_save_dir):
+    def __init__(self, num_class,
+                 use_metric_loss, metric_loss_weight,
+                 use_cluster_loss, cluster_loss_weight,
+                 weights_save_dir
+        ):
         """"""
         self.num_class = num_class
+
         self.use_metric_loss = use_metric_loss
         self.metric_loss_weight = metric_loss_weight
+
+        self.use_cluster_loss = use_cluster_loss
+        self.cluster_loss_weight = cluster_loss_weight
+
         self.weights_save_dir = weights_save_dir
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -93,7 +105,9 @@ class Train(object):
         loss = LossFactory(
             num_classes=self.num_class,
             use_metric_loss=self.use_metric_loss,
-            metric_loss_weight=self.metric_loss_weight
+            metric_loss_weight=self.metric_loss_weight,
+            use_cluster_loss=self.use_cluster_loss,
+            cluster_loss_weight=self.cluster_loss_weight
         )
 
         return loss
@@ -139,7 +153,6 @@ class Train(object):
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         iteration = checkpoint['iteration']
 
-        torch.save(self.model, '/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/model_focal_100000.pth')
         print("Load from %s successfully." % ckpt_path)
         return iteration
 
@@ -155,7 +168,7 @@ class Train(object):
             'optimizer_state_dict': self.optimizer.state_dict(),
             'iteration': iter
         }
-        ckpt_path = os.path.join(ckpt_dir, 'metric_iter_%d.pth' % iter)
+        ckpt_path = os.path.join(ckpt_dir, 'cluster_iter_%d_pretrained.pth' % iter)
 
         torch.save(save_dict, ckpt_path)
         print("Save checkpoint to %s" % ckpt_path)
@@ -166,6 +179,13 @@ class Train(object):
         torch.backends.cudnn.benchmark = True
 
         iter = 0
+
+        # load coco pretrained weights
+        self.model.load_state_dict(
+            torch.load('/home/stuart/.cache/torch/checkpoints/deeplabv3_resnet50_coco-cd0a2569.pth'),
+            strict = False
+        )
+
         if args.pretrained_weights:
             iter = self.load_checkpoint(args.pretrained_weights)
 
@@ -209,5 +229,7 @@ if __name__ == '__main__':
         num_class=args.num_classes,
         use_metric_loss=args.use_metric_loss,
         metric_loss_weight=args.metric_loss_weight,
+        use_cluster_loss=args.use_cluster_loss,
+        cluster_loss_weight=args.cluster_loss_weight,
         weights_save_dir=args.weights_save_dir
     ).run()
