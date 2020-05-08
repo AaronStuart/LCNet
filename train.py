@@ -30,7 +30,7 @@ parser.add_argument("--epochs", type=int, default=6)
 parser.add_argument("--batch_size", type=int, default=2)
 parser.add_argument("--warm_up_iters", type=int, default=10000)
 parser.add_argument("--learning_rate", type=float, default=0.01)
-parser.add_argument("--pretrained_weights", type=str)
+parser.add_argument("--pretrained_weights", type=str, default='/media/stuart/data/weights/DeepLabV3/cluster_iter_10000_pretrained.pth')
 parser.add_argument("--save_interval", type=int, default=5000, help="How many iterations are saved once?")
 parser.add_argument("--visualize_interval", type=int, default=500, help="How many iterations are visualized once?")
 parser.add_argument("--log_dir", type=str, default='/media/stuart/data/events')
@@ -153,6 +153,7 @@ class Train(object):
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         iteration = checkpoint['iteration']
 
+        # torch.save(self.model, '/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/model_cluster_iter_100000_pretrained.pth')
         print("Load from %s successfully." % ckpt_path)
         return iteration
 
@@ -168,7 +169,7 @@ class Train(object):
             'optimizer_state_dict': self.optimizer.state_dict(),
             'iteration': iter
         }
-        ckpt_path = os.path.join(ckpt_dir, 'cluster_iter_%d_pretrained.pth' % iter)
+        ckpt_path = os.path.join(ckpt_dir, 'dynamic_weighted_cluster_iter_%d_pretrained.pth' % iter)
 
         torch.save(save_dict, ckpt_path)
         print("Save checkpoint to %s" % ckpt_path)

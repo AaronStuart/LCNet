@@ -27,7 +27,7 @@ class LossFactory(object):
             self.metric_loss = RankedListLoss()
 
         if use_cluster_loss:
-            self.cluster_loss = ClusterLoss()
+            self.cluster_loss = ClusterLoss(num_classes)
 
     def compute_loss(self, logits, target, iter, warm_up_iters):
         """

@@ -3,7 +3,8 @@ import torch.nn.functional as F
 import numpy as np
 
 class ClusterLoss(object):
-    def __init__(self, gamma=2, normalize_type='L2', distance_type='L2'):
+    def __init__(self, num_classes, gamma=2, normalize_type='L2', distance_type='L2'):
+        self.num_classes = num_classes
         self.gamma = gamma
 
         assert normalize_type in ['L2', 'softmax'], "Error normalize_type"
@@ -11,6 +12,8 @@ class ClusterLoss(object):
 
         assert distance_type in ['L2'], "Error distance_type"
         self.distance_type = distance_type
+
+        self.class_statistics = torch.zeros(num_classes, dtype = torch.float)
 
     def compute_distance(self, logits, center):
         """
@@ -41,15 +44,28 @@ class ClusterLoss(object):
         flatten_logits = logits.permute(0, 2, 3, 1).contiguous().view(-1, C)
         flatten_label = label.view(-1)
 
-        foreground_logits = flatten_logits[flatten_label != 0]
+        # 0 is background, 37 is ignored
+        foreground_mask = (flatten_label != 0) & (flatten_label != 37)
+        foreground_logits = flatten_logits[foreground_mask]
+        foreground_label = flatten_label[foreground_mask]
 
         foreground_center = torch.tensor(
-            np.eye(C, dtype = np.float)[(flatten_label[flatten_label != 0]).cpu().numpy()],
+            np.eye(C, dtype = np.float)[foreground_label.cpu().numpy()],
             device = logits.device
         )
 
         foreground_distance = self.compute_distance(foreground_logits, foreground_center)
 
-        cluster_loss = torch.pow(torch.tanh(foreground_distance), self.gamma) * torch.log(1 + foreground_distance)
+        # update statistics
+        labels, nums = torch.unique(foreground_label, return_counts = True)
+        for _cls, _cnt in zip(labels.cpu().numpy(), nums.cpu().numpy()):
+            self.class_statistics[_cls] += _cnt
+
+        # calculate dynamic class weights
+        foreground_frequency = self.class_statistics / torch.sum(self.class_statistics)
+        class_weights = 1.0 - torch.index_select(foreground_frequency.cuda(), dim = 0, index = foreground_label.to(torch.long))
+
+        # compute weighted focal loss
+        cluster_loss = class_weights * torch.pow(torch.tanh(foreground_distance), self.gamma) * torch.log(1 + foreground_distance)
 
         return cluster_loss.mean()
