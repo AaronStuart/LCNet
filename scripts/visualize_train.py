@@ -63,9 +63,15 @@ class TrainVisualize:
 
         # visualize foreground's embedding
         C, H, W = logits.shape
-        flatten_label = label.view(-1).numpy()
+        flatten_logits = logits.permute(1, 2, 0).view(-1, C)
+        flatten_labels = label.view(-1).numpy()
+
+        foreground_mask = flatten_labels != 0 & flatten_labels != 37
+        foreground_logits = flatten_logits[foreground_mask]
+        foreground_labels = flatten_labels[foreground_mask]
+
         self.summary.add_embedding(
-            mat = logits.permute(1, 2, 0).view(-1, C)[flatten_label != 0],
-            metadata = list(map(lambda x : trainId2name[x], flatten_label[[flatten_label != 0]])),
+            mat = foreground_logits,
+            metadata = list(map(lambda x : trainId2name[x], foreground_labels)),
             global_step = iteration
         )
