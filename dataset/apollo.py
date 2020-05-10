@@ -149,29 +149,38 @@ class ApolloDaliDataset(object):
 
 class ApolloBalanceTrainDataset(torch.utils.data.IterableDataset):
     def __init__(self, root_dir, json_path):
+        self.root_dir = root_dir
         self.dataset = self.create_dataset(json_path)
 
     def create_dataset(self, json_path):
-        class_dict = json.load(json_path)
+        class_dict = json.load(open(json_path, 'r'))
 
         result = {}
-        for train_id, paths in class_dict.items():
-            if train_id not in result.keys():
-                result[train_id] = deque()
-    def __iter__(self):
+        for class_name, paths in class_dict.items():
+            result[class_name] = deque(paths)
 
+        return result
+
+    def __iter__(self):
+        pass
 
 
 if __name__ == '__main__':
-    train_iterator = ApolloDaliDataset(
-        root_dir='/media/stuart/data/dataset/Apollo/Lane_Detection',
-        file_path='/home/stuart/PycharmProjects/LCNet/dataset/train_apollo_gray.txt',
-        batch_size=1,
-        num_threads=12,
-        is_train=True
-    ).getIterator()
+    # ####################### DALI DEBUG ###############################################
+    # train_iterator = ApolloDaliDataset(
+    #     root_dir='/media/stuart/data/dataset/Apollo/Lane_Detection',
+    #     file_path='/home/stuart/PycharmProjects/LCNet/dataset/train_apollo_gray.txt',
+    #     batch_size=1,
+    #     num_threads=12,
+    #     is_train=True
+    # ).getIterator()
+    #
+    # for iter, data in enumerate(train_iterator):
+    #     input, label = data[0]['input'], data[0]['label']
+    #     print("input shape is ", input.shape)
+    #     print("label shape is ", label.shape)
 
-    for iter, data in enumerate(train_iterator):
-        input, label = data[0]['input'], data[0]['label']
-        print("input shape is ", input.shape)
-        print("label shape is ", label.shape)
+    dataset = ApolloBalanceTrainDataset(
+        root_dir = '/media/stuart/data/dataset/Apollo/Lane_Detection',
+        json_path = '/home/stuart/PycharmProjects/LCNet/dataset/test_split_by_class.json'
+    )
