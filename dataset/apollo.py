@@ -1,6 +1,9 @@
 import os
 import types
 from random import shuffle
+import torch
+import json
+from collections import deque
 
 import numpy as np
 import nvidia.dali.ops as ops
@@ -142,6 +145,21 @@ class ApolloDaliDataset(object):
         )
 
         return dataset_iterator
+
+
+class ApolloBalanceTrainDataset(torch.utils.data.IterableDataset):
+    def __init__(self, root_dir, json_path):
+        self.dataset = self.create_dataset(json_path)
+
+    def create_dataset(self, json_path):
+        class_dict = json.load(json_path)
+
+        result = {}
+        for train_id, paths in class_dict.items():
+            if train_id not in result.keys():
+                result[train_id] = deque()
+    def __iter__(self):
+
 
 
 if __name__ == '__main__':
