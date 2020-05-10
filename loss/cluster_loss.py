@@ -56,16 +56,17 @@ class ClusterLoss(object):
 
         foreground_distance = self.compute_distance(foreground_logits, foreground_center)
 
-        # update statistics
-        labels, nums = torch.unique(foreground_label, return_counts = True)
-        for _cls, _cnt in zip(labels.cpu().numpy(), nums.cpu().numpy()):
-            self.class_statistics[_cls] += _cnt
-
-        # calculate dynamic class weights
-        foreground_frequency = self.class_statistics / torch.sum(self.class_statistics)
-        class_weights = 1.0 - torch.index_select(foreground_frequency.cuda(), dim = 0, index = foreground_label.to(torch.long))
+        # # update statistics
+        # labels, nums = torch.unique(foreground_label, return_counts = True)
+        # for _cls, _cnt in zip(labels.cpu().numpy(), nums.cpu().numpy()):
+        #     self.class_statistics[_cls] += _cnt
+        #
+        # # calculate dynamic class weights
+        # foreground_frequency = self.class_statistics / torch.sum(self.class_statistics)
+        # class_weights = 1.0 - torch.index_select(foreground_frequency.cuda(), dim = 0, index = foreground_label.to(torch.long))
 
         # compute weighted focal loss
-        cluster_loss = class_weights * torch.pow(torch.tanh(foreground_distance), self.gamma) * torch.log(1 + foreground_distance)
+        # cluster_loss = class_weights * torch.pow(torch.tanh(foreground_distance), self.gamma) * torch.log(1 + foreground_distance)
+        cluster_loss = torch.pow(torch.tanh(foreground_distance), self.gamma) * torch.log(1 + foreground_distance)
 
         return cluster_loss.mean()

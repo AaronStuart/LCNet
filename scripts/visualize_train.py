@@ -66,7 +66,7 @@ class TrainVisualize:
         flatten_logits = logits.permute(1, 2, 0).view(-1, C)
         flatten_labels = label.view(-1).numpy()
 
-        foreground_mask = flatten_labels != 0 & flatten_labels != 37
+        foreground_mask = (flatten_labels != 0) & (flatten_labels != 37)
         foreground_logits = flatten_logits[foreground_mask]
         foreground_labels = flatten_labels[foreground_mask]
 
