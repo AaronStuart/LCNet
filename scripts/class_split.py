@@ -1,7 +1,11 @@
-import numpy as np
-import cv2 as cv
 import json
 import os
+
+import cv2 as cv
+import numpy as np
+
+from scripts.apollo_label import trainId2name
+
 
 class ClassSplit:
     def __init__(self, dataset_root, file_path, out_path):
@@ -21,14 +25,20 @@ class ClassSplit:
                 gray_labels = np.unique(gray_label)
 
                 for train_id in gray_labels:
-                    if train_id not in self.result.keys():
-                        self.result[train_id] = [(image_path, label_path)]
+                    class_name = trainId2name[train_id]
+
+                    if class_name in ['void', 'ignored']:
                         continue
-                    self.result[train_id].append((image_path, label_path))
+
+                    if class_name not in self.result.keys():
+                        self.result[class_name] = [(image_path, label_path)]
+                        continue
+
+                    self.result[class_name].append((image_path, label_path))
 
         file_name = self.file_path.split('/')[-1].split('.')[0]
         out_json_path = os.path.join(self.out_path, '%s_split_by_class.json' % file_name)
-        json.dump(self.result, out_json_path, indent = 4)
+        json.dump(self.result, open(out_json_path, 'w'), indent = 4)
 
 if __name__ == '__main__':
     service = ClassSplit(
