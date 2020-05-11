@@ -153,7 +153,7 @@ class Train(object):
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         iteration = checkpoint['iteration']
 
-        # torch.save(self.model, '/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/model_dynamic_weighted_cluster_iter_100000_pretrained.pth')
+        # torch.save(self.model, '/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/model_cluster_without_ignored_iter_100000_pretrained.pth')
         print("Load from %s successfully." % ckpt_path)
         return iteration
 
@@ -169,7 +169,7 @@ class Train(object):
             'optimizer_state_dict': self.optimizer.state_dict(),
             'iteration': iter
         }
-        ckpt_path = os.path.join(ckpt_dir, 'cluster_without_ignored_iter_%d_pretrained.pth' % iter)
+        ckpt_path = os.path.join(ckpt_dir, 'cluster_all_class_iter_%d_pretrained.pth' % iter)
 
         torch.save(save_dict, ckpt_path)
         print("Save checkpoint to %s" % ckpt_path)

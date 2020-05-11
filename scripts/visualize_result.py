@@ -51,6 +51,7 @@ if __name__ == '__main__':
     # )
     multi_json_visualize(
         json_path_dict={
+            'foreground': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/cluster_without_ignored_iter_100000_pretrained.json',
             'dynamic': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/dynamic_weighted_cluster_100000_iter_pretrained.json',
             'cluster': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/cluster_100000_iter_pretrained.json',
             'pretrained': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/focal_100000_iter_pretrained.json',

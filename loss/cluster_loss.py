@@ -49,12 +49,20 @@ class ClusterLoss(object):
         foreground_logits = flatten_logits[foreground_mask]
         foreground_label = flatten_label[foreground_mask]
 
-        foreground_center = torch.tensor(
-            np.eye(C, dtype = np.float)[foreground_label.cpu().numpy()],
+        # foreground_center = torch.tensor(
+        #     np.eye(C, dtype = np.float)[foreground_label.cpu().numpy()],
+        #     device = logits.device
+        # )
+        # foreground_distance = self.compute_distance(foreground_logits, foreground_center)
+        # cluster_loss = torch.pow(torch.tanh(foreground_distance), self.gamma) * torch.log(1 + foreground_distance)
+
+        class_center = torch.tensor(
+            np.eye(C, dtype = np.float)[flatten_label.cpu().numpy()],
             device = logits.device
         )
+        distance = self.compute_distance(flatten_logits, class_center)
+        cluster_loss = torch.pow(torch.tanh(distance), self.gamma) * torch.log(1 + distance)
 
-        foreground_distance = self.compute_distance(foreground_logits, foreground_center)
 
         # # update statistics
         # labels, nums = torch.unique(foreground_label, return_counts = True)
@@ -67,6 +75,6 @@ class ClusterLoss(object):
 
         # compute weighted focal loss
         # cluster_loss = class_weights * torch.pow(torch.tanh(foreground_distance), self.gamma) * torch.log(1 + foreground_distance)
-        cluster_loss = torch.pow(torch.tanh(foreground_distance), self.gamma) * torch.log(1 + foreground_distance)
+
 
         return cluster_loss.mean()
