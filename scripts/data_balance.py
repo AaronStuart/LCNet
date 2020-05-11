@@ -1,10 +1,14 @@
 import os
+from tqdm import tqdm
 
 import numpy as np
 import json
 import cv2 as cv
 
-from scripts.apollo_label import trainId2name
+from scripts.apollo_label import trainId2name, eval_names
+
+import plotly as py
+import plotly.graph_objs as go
 
 
 class DataBalance:
@@ -19,7 +23,7 @@ class DataBalance:
         txt = open(self.txt_path, 'r')
 
         label_statistics = {}
-        for line in txt.readlines():
+        for line in tqdm(txt.readlines()):
             image_path, label_path = line.strip().split(',')
 
             label_path = os.path.join(self.root_dir, label_path)
@@ -29,7 +33,7 @@ class DataBalance:
             for train_id, pixel_num in zip(labels, counts):
                 class_name = trainId2name[train_id]
 
-                if train_id not in label_statistics.keys():
+                if class_name not in label_statistics.keys():
                     label_statistics[class_name] = float(pixel_num)
                     continue
 
@@ -37,11 +41,44 @@ class DataBalance:
 
         json.dump(label_statistics, open(self.out_json_path, 'w'), indent = 4)
 
-if __name__ == '__main__':
-    data_balance = DataBalance(
-        root_dir = '/media/stuart/data/dataset/Apollo/Lane_Detection',
-        txt_path = '/home/stuart/PycharmProjects/LCNet/dataset/train_apollo_gray.txt',
-        out_path = '/home/stuart/PycharmProjects/LCNet/materials'
-    )
+    @classmethod
+    def visualize_statistics(self, json_path):
+        statistics = json.load(open(json_path, 'r'))
 
-    data_balance.generate_statistics()
+        # get x, y
+        labels, nums = [], []
+        for label, num in statistics.items():
+            if label not in eval_names:
+                continue
+            labels.append(label)
+            nums.append(num)
+
+        # define traces
+        trace = go.Bar(
+            x = labels,
+            y = nums,
+            name = 'pixel num'
+        )
+
+        # define layout
+        layout = go.Layout(title='class pixel number statistics')
+
+        # generate figure
+        figure = go.Figure(
+            data=trace,
+            layout=layout
+        )
+
+        # draw figure
+        py.offline.plot(figure, filename='statistics.html')
+
+if __name__ == '__main__':
+    # data_balance = DataBalance(
+    #     root_dir = '/media/stuart/data/dataset/Apollo/Lane_Detection',
+    #     txt_path = '/home/stuart/PycharmProjects/LCNet/dataset/train_apollo_gray.txt',
+    #     out_path = '/home/stuart/PycharmProjects/LCNet/materials'
+    # )
+    #
+    # data_balance.generate_statistics()
+
+    DataBalance.visualize_statistics('/home/stuart/PycharmProjects/LCNet/materials/train_apollo_gray_statistics.json')

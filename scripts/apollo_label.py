@@ -123,7 +123,7 @@ valid_trainIds = [label.trainId for label in labels if label.trainId not in [0, 
 # name to color
 name2color = {label.name : label.color for label in labels}
 # eval names
-eval_names = [label.name for label in labels if label.ignoreInEval == 'False']
+eval_names = [label.name for label in labels if label.ignoreInEval == False]
 
 # category to list of label objects
 category2labels = {}
