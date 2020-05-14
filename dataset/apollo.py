@@ -1,10 +1,10 @@
+import json
 import os
 import types
+from itertools import cycle
 from random import shuffle
-import torch
-import json
-from collections import deque
 
+import cv2
 import numpy as np
 import nvidia.dali.ops as ops
 import nvidia.dali.types as types
@@ -67,12 +67,12 @@ class ApolloPipeline(Pipeline):
 
         self.input_resize = ops.Resize(
             device='gpu', image_type=types.RGB,
-            resize_longer = 800,
+            resize_longer=800,
             interp_type=types.INTERP_LINEAR
         )
         self.label_resize = ops.Resize(
             device='gpu', image_type=types.GRAY,
-            resize_longer = 800,
+            resize_longer=800,
             interp_type=types.INTERP_NN
         )
         self.transpose = ops.Transpose(
@@ -131,7 +131,7 @@ class ApolloDaliDataset(object):
             num_threads=self.num_threads,
             device_id=0,
             iterator=file_iterator,
-            is_train = self.is_train
+            is_train=self.is_train
         )
 
         # create iterator of pytorch
@@ -147,22 +147,54 @@ class ApolloDaliDataset(object):
         return dataset_iterator
 
 
-class ApolloBalanceTrainDataset(torch.utils.data.IterableDataset):
-    def __init__(self, root_dir, json_path):
+class ApolloBalanceTrainDataLoader:
+    def __init__(self, root_dir, json_path, batch_size):
         self.root_dir = root_dir
-        self.dataset = self.create_dataset(json_path)
+        self.class_paths = self.get_class_paths(json_path)
+        self.batch_size = batch_size
+        self.i = 0
 
-    def create_dataset(self, json_path):
+    def get_class_paths(self, json_path):
         class_dict = json.load(open(json_path, 'r'))
 
-        result = {}
+        class_paths = []
         for class_name, paths in class_dict.items():
-            result[class_name] = deque(paths)
+            class_paths.append(cycle(paths))
 
-        return result
+        return class_paths
 
     def __iter__(self):
-        pass
+        return self
+
+    def __next__(self):
+        inputs, labels = [], []
+        for _ in range(self.batch_size):
+            image_path, label_path = next(self.class_paths[self.i])
+
+            ###### preprocess image #######
+            image_path = os.path.join(self.root_dir, image_path)
+            image = cv2.imread(image_path)
+            image = cv2.resize(image, (800, 641), interpolation=cv2.INTER_AREA)
+
+            ###### preprocess label ########
+            label_path = os.path.join(self.root_dir, label_path)
+            gray_label = cv2.imread(label_path, cv2.IMREAD_UNCHANGED)
+            gray_label = cv2.resize(gray_label, (800, 641), interpolation=cv2.INTER_NEAREST)
+
+            # change from [H, W, C] to [C, H, W]
+            image = np.transpose(image, axes=[2, 0, 1])
+            gray_label = gray_label[np.newaxis, :, :]
+
+            # change form BGR to RGB
+            image = np.ascontiguousarray(image[::-1, :, :])
+
+            inputs.append(image)
+            labels.append(gray_label)
+
+            # circle train every class
+            self.i = (self.i + 1) % len(self.class_paths)
+        batch_image, batch_label = np.stack(inputs), np.stack(labels)
+        return batch_image, batch_label
 
 
 if __name__ == '__main__':
@@ -180,7 +212,11 @@ if __name__ == '__main__':
     #     print("input shape is ", input.shape)
     #     print("label shape is ", label.shape)
 
-    dataset = ApolloBalanceTrainDataset(
-        root_dir = '/media/stuart/data/dataset/Apollo/Lane_Detection',
-        json_path = '/home/stuart/PycharmProjects/LCNet/dataset/test_split_by_class.json'
+    train_dataloader = ApolloBalanceTrainDataLoader(
+        root_dir='/media/stuart/data/dataset/Apollo/Lane_Detection',
+        json_path='/home/stuart/PycharmProjects/LCNet/dataset/test_split_by_class.json',
+        batch_size = 2
     )
+
+    for image, gray_label in train_dataloader:
+        pass

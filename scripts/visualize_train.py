@@ -61,6 +61,15 @@ class TrainVisualize:
             self.summary.add_image('origin_logits/%s' % label_name, vutils.make_grid(label_channel, normalize=True),
                                    iteration)
 
+        # add PR curve
+        for trainId in range(logits.shape[0]):
+            self.summary.add_pr_curve(
+                tag = trainId2name[trainId],
+                labels = torch.where(label == trainId, torch.tensor(1), torch.tensor(0)).view(-1),
+                predictions= torch.softmax(logits, dim = 0)[trainId].view(-1),
+                global_step = iteration
+            )
+
         # visualize foreground's embedding
         C, H, W = logits.shape
         flatten_logits = logits.permute(1, 2, 0).view(-1, C)

@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--num_classes", type=int, default=38)
 parser.add_argument("--batch_size", type=int, default=1)
 parser.add_argument("--num_threads", type=int, default=1)
-parser.add_argument("--model_path", type=str, default='/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/model_cluster_all_iter_100000_pretrained.pth')
+parser.add_argument("--model_path", type=str, default='/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/model_cluster_all_class_gamma_3_iter_100000_pretrained.pth')
 parser.add_argument("--dataset_root_dir", type=str, default='/media/stuart/data/dataset/Apollo/Lane_Detection')
 parser.add_argument("--val_file", type=str, default='./dataset/val_apollo_gray.txt')
 args = parser.parse_args()
@@ -126,5 +126,5 @@ if __name__ == '__main__':
 
     # Save eval result to disk
     model_name = model.__class__.__name__
-    with open('experiments/%s/cluster_all_iter_100000_pretrained.json' % model_name, 'w') as result_file:
+    with open('experiments/%s/cluster_all_class_gamma_3_iter_100000_pretrained.json' % model_name, 'w') as result_file:
         json.dump(eval_reuslt, result_file, indent=4)
