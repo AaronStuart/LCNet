@@ -51,6 +51,7 @@ if __name__ == '__main__':
     # )
     multi_json_visualize(
         json_path_dict={
+            'balance_train': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/cluster_foreground_with_ignored_balance_train_iter_100000_pretrained.json',
             'all_class_gamma_3': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/cluster_all_class_gamma_3_iter_100000_pretrained.json',
             'all_class': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/cluster_all_iter_100000_pretrained.json',
             'foreground': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/cluster_without_ignored_iter_100000_pretrained.json',

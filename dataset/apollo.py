@@ -174,12 +174,12 @@ class ApolloBalanceTrainDataLoader:
             ###### preprocess image #######
             image_path = os.path.join(self.root_dir, image_path)
             image = cv2.imread(image_path)
-            image = cv2.resize(image, (800, 641), interpolation=cv2.INTER_AREA)
+            image = cv2.resize(image, dsize = (0, 0), fx = 0.3, fy = 0.3, interpolation=cv2.INTER_AREA)
 
             ###### preprocess label ########
             label_path = os.path.join(self.root_dir, label_path)
             gray_label = cv2.imread(label_path, cv2.IMREAD_UNCHANGED)
-            gray_label = cv2.resize(gray_label, (800, 641), interpolation=cv2.INTER_NEAREST)
+            gray_label = cv2.resize(gray_label, dsize = image.shape[:-1][::-1], interpolation=cv2.INTER_NEAREST)
 
             # change from [H, W, C] to [C, H, W]
             image = np.transpose(image, axes=[2, 0, 1])
@@ -194,6 +194,54 @@ class ApolloBalanceTrainDataLoader:
             # circle train every class
             self.i = (self.i + 1) % len(self.class_paths)
         batch_image, batch_label = np.stack(inputs), np.stack(labels)
+        return batch_image, batch_label
+
+
+class ApolloBalanceTrainEvalDataLoader:
+    def __init__(self, root_dir, file_path, batch_size):
+        self.root_dir = root_dir
+        self.paths = self.get_paths(file_path)
+        self.batch_size = batch_size
+
+    def get_paths(self, file_path):
+        result = []
+        with open(file_path, 'r') as txt:
+            for line in txt.readlines():
+                image_path, gray_label_path = line.strip().split(',')
+
+                image_path = os.path.join(self.root_dir, image_path)
+                gray_label_path = os.path.join(self.root_dir, gray_label_path)
+                result.append((image_path, gray_label_path))
+        return result
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        image_batch, label_batch = [], []
+        for _ in range(self.batch_size):
+            if len(self.paths) == 0:
+                raise StopIteration
+            image_path, gray_label_path = self.paths.pop()
+
+            ###### preprocess image #######
+            image = cv2.imread(image_path)
+            image = cv2.resize(image, (800, 641), interpolation=cv2.INTER_AREA)
+
+            ###### preprocess label ########
+            gray_label = cv2.imread(gray_label_path, cv2.IMREAD_UNCHANGED)
+
+            # change from [H, W, C] to [C, H, W]
+            image = np.transpose(image, axes=[2, 0, 1])
+            gray_label = gray_label[np.newaxis, :, :]
+
+            # change form BGR to RGB
+            image = np.ascontiguousarray(image[::-1, :, :])
+
+            image_batch.append(image)
+            label_batch.append(gray_label)
+
+        batch_image, batch_label = np.stack(image_batch), np.stack(label_batch)
         return batch_image, batch_label
 
 
@@ -215,7 +263,7 @@ if __name__ == '__main__':
     train_dataloader = ApolloBalanceTrainDataLoader(
         root_dir='/media/stuart/data/dataset/Apollo/Lane_Detection',
         json_path='/home/stuart/PycharmProjects/LCNet/dataset/test_split_by_class.json',
-        batch_size = 2
+        batch_size=2
     )
 
     for image, gray_label in train_dataloader:

@@ -1,18 +1,15 @@
-import json
 import os
 import random
-import sys
-sys.path.append('/home/stuart/PycharmProjects/EDANet')
 
 import cv2 as cv
-import cupy as cp
+import numpy as np
 from tqdm import tqdm
 
-from scripts.apollo_label import labels, name2color
+from scripts.apollo_label import trainId2name
 
 
 class TrainValSplit(object):
-    def __init__(self, root_dir, val_ratio, train_file, val_file):
+    def __init__(self, root_dir, val_ratio, total_file, train_file, val_file):
         """Divide the dataset by category to ensure that all categories of data exist in the validation set
 
         :param root_dir: Root directory of the dataset
@@ -25,48 +22,19 @@ class TrainValSplit(object):
         self.train_file = train_file
         self.val_file = val_file
 
-        # all samples
+        # collect images' path and labels'path
         self.image_label_pairs = self.getImageLabelPairs(root_dir)
 
-        # Results in ascending order of pixels
-        self.frequency_ascending_order = (
-            'a_n_lu',
-            'a_w_lr',
-            'sb_y_do',
-            'sb_w_do',
-            'db_y_g',
-            'b_n_sr',
-            'a_w_u',
-            's_w_c',
-            'd_wy_za',
-            's_y_c',
-            'ds_w_dn',
-            'a_w_r',
-            'a_w_tl',
-            'b_y_g',
-            'om_n_n',
-            's_w_p',
-            'a_w_t',
-            'a_w_tr',
-            'r_wy_np',
-            's_w_s',
-            'vom_wy_n',
-            'a_w_l',
-            'ds_y_dn',
-            's_y_d',
-            'b_w_g',
-            's_w_d',
-            'c_wy_z',
-            'ignored',
-            'void'
-        )
+        # save total paths to txt
+        with open(total_file, 'w') as total:
+            for image_path, label_path in self.image_label_pairs:
+                total.writelines(image_path + ',' + label_path + '\n')
 
-        # the final split result
-        self.train_list = []
-        self.val_list = []
-
-        # auxliary dict
+        # get split dict
         self.split_dict = self.getSplitDict()
+
+        # do train val split
+        self.train_set, self.val_set = self.trainValSplit()
 
     def getImageLabelPairs(self, root_dir):
         image_dirs = [
@@ -80,90 +48,77 @@ class TrainValSplit(object):
                 for filename in filenames:
                     if filename.endswith('.jpg'):
                         image_path = os.path.join(dirpath, filename)
-                        label_path = image_path.replace('ColorImage_road', 'Labels_road').replace('ColorImage', 'Label').replace('.jpg', '_bin.png')
+                        label_path = image_path.replace('ColorImage_road', 'Labels_road').replace('ColorImage',
+                                                                                                  'Label').replace(
+                            '.jpg', '_bin.png')
                         if os.path.exists(label_path):
-                            result.append((image_path, label_path))
+                            result.append((image_path[len(self.root_dir) + 1:], label_path[len(self.root_dir) + 1:]))
                         else:
                             print(image_path, 'does not exist', label_path)
+        random.shuffle(result)
         return result
 
     def getSplitDict(self):
-        # define initial split dict
-        split_dict = {label.name: [] for label in labels}
-        processed = set()
-
-        # restore checkpoint
-        split_dict = json.load(open('/home/stuart/PycharmProjects/EDANet/experiments/split.json', 'r'))
-        processed = set(json.load(open('/home/stuart/PycharmProjects/EDANet/experiments/processed.json', 'r')))
+        split_dict = {}
 
         # split by class
         for image_path, label_path in tqdm(self.image_label_pairs):
-            # skip processed image
-            if image_path in processed:
+
+            # parse gray label
+            try:
+                gray_label = cv.imread(os.path.join(self.root_dir, label_path.replace('.png', '_gray.png')),
+                                       cv.IMREAD_UNCHANGED)
+                train_ids, counts = np.unique(gray_label, return_counts=True)
+            except:
                 continue
 
-            # read label
-            print('Begin to process %s' % image_path)
-            label = cv.imread(label_path)
-            for label_name in self.frequency_ascending_order:
-                bgr = name2color[label_name][::-1]
-                # If it contains pixels of this class
-                if cp.any(cp.all(cp.array(label == bgr), axis = 2)):
-                    relative_image_path = image_path.replace(self.root_dir + os.sep, '')
-                    relative_label_path = label_path.replace(self.root_dir + os.sep, '')
-                    split_dict[label_name].append((relative_image_path, relative_label_path))
-                    processed.add(image_path)
-                    break
-            print('Process %s finished' % image_path)
+            for train_id, count in zip(train_ids, counts):
+                class_name = trainId2name[train_id]
+                if class_name in ['void', 'ignored'] or count < 5000:
+                    continue
 
-            # store processed result
-            with open('experiments/processed.json', 'w') as json_file:
-                json.dump(list(processed), json_file, indent = 4)
-            with open('experiments/split.json', 'w') as json_file:
-                json.dump(split_dict, json_file, indent = 4)
+                if class_name not in split_dict.keys():
+                    split_dict[class_name] = []
+                split_dict[class_name].append((image_path, label_path))
 
         return split_dict
-            
+
     def trainValSplit(self):
+        all_set, val_set = set(), set()
+
         for label_name, label_list in self.split_dict.items():
-            if not label_list:
+            all_set.update(set(label_list))
+
+            if label_name in ['s_w_d', 's_y_d', 's_w_p', 'b_y_g', 'b_w_g', 'c_wy_z']:
                 continue
 
-            # shuffle label list
-            random.shuffle(label_list)
-            count = 0
-            while label_list:
-                # Randomly select 100 images as val set
-                if count == 100:
-                    break
-                self.val_list.append(label_list[-1])
-                label_list.pop()
-                count += 1
+            # sample val set
+            val_set.update(random.sample(label_list, int(self.val_ratio * len(label_list))))
 
-            # The rest for train set
-            if label_list:
-                self.train_list.extend(label_list)
+        train_set = all_set - val_set
+
+        return train_set, val_set
 
     def outputTxt(self):
         # write to train file
         with open(self.train_file, 'w') as train:
-            for image_path, label_path in self.train_list:
+            for image_path, label_path in self.train_set:
                 train.writelines(image_path + ',' + label_path + '\n')
 
         # write to val file
         with open(self.val_file, 'w') as val:
-            for image_path, label_path in self.val_list:
+            for image_path, label_path in self.val_set:
                 val.writelines(image_path + ',' + label_path + '\n')
 
     def run(self):
-        self.trainValSplit()
         self.outputTxt()
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     TrainValSplit(
-        root_dir = '/media/stuart/data/dataset/Apollo/Lane_Detection',
-        val_ratio = 0.1,
-        train_file = 'dataset/train_apollo.txt',
-        val_file = 'dataset/val_apollo.txt'
+        root_dir='/media/stuart/data/dataset/Apollo/Lane_Detection',
+        val_ratio=0.2,
+        total_file='/home/stuart/PycharmProjects/LCNet/dataset/apollo.txt',
+        train_file='/home/stuart/PycharmProjects/LCNet/dataset/apollo_train.txt',
+        val_file='/home/stuart/PycharmProjects/LCNet/dataset/apollo_val.txt'
     ).run()

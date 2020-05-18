@@ -48,7 +48,7 @@ class DataBalance:
         # get x, y
         labels, nums = [], []
         for label, num in statistics.items():
-            if label not in eval_names:
+            if label == 'void' or label not in eval_names:
                 continue
             labels.append(label)
             nums.append(num)

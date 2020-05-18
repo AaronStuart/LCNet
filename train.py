@@ -7,7 +7,7 @@ from torch import optim
 
 from dataset.apollo import ApolloDaliDataset, ApolloBalanceTrainDataLoader
 from loss.LossFactory import LossFactory
-from scripts.visualize_train import TrainVisualize
+from scripts.visualize import Visualize
 
 parser = argparse.ArgumentParser()
 #############  Model  #############
@@ -15,8 +15,8 @@ parser.add_argument("--num_classes", type=int, default=38)
 
 #############  Data  #############
 parser.add_argument("--dataset_root_dir", type=str, default="/media/stuart/data/dataset/Apollo/Lane_Detection")
-# parser.add_argument("--train_file", type=str, default='/home/stuart/PycharmProjects/LCNet/dataset/small.txt')
-parser.add_argument("--train_file", type=str, default='/home/stuart/PycharmProjects/LCNet/dataset/test_split_by_class.json')
+# parser.add_argument("--train_file", type=str, default='/home/stuart/PycharmProjects/LCNet/dataset/train_apollo_gray.txt')
+parser.add_argument("--train_file", type=str, default='/home/stuart/PycharmProjects/LCNet/dataset/train_apollo_gray_split_by_class.json')
 parser.add_argument("--num_threads", type=int, default=8)
 
 #############  Loss  #############
@@ -29,11 +29,11 @@ parser.add_argument("--cluster_loss_weight", type=float, default=1)
 ############# Train  #############
 parser.add_argument("--epochs", type=int, default=6)
 parser.add_argument("--batch_size", type=int, default=2)
-parser.add_argument("--warm_up_iters", type=int, default=10000)
+parser.add_argument("--warm_up_iters", type=int, default=0)
 parser.add_argument("--learning_rate", type=float, default=0.01)
-parser.add_argument("--pretrained_weights", type=str, default='/media/stuart/data/weights/DeepLabV3/cluster_foreground_with_ignored_balance_train_iter_50000_pretrained.pth')
-parser.add_argument("--save_interval", type=int, default=5000, help="How many iterations are saved once?")
-parser.add_argument("--visualize_interval", type=int, default=500, help="How many iterations are visualized once?")
+parser.add_argument("--pretrained_weights", type=str, default='/media/stuart/data/weights/DeepLabV3/cluster_foreground_with_ignored_balance_train_iter_100000_pretrained.pth')
+parser.add_argument("--save_interval", type=int, default=1000, help="How many iterations are saved once?")
+parser.add_argument("--visualize_interval", type=int, default=10, help="How many iterations are visualized once?")
 parser.add_argument("--log_dir", type=str, default='/media/stuart/data/events')
 parser.add_argument("--weights_save_dir", type=str, default='/media/stuart/data/weights')
 parser.add_argument("--use_dali", type=bool, default=False)
@@ -145,7 +145,7 @@ class Train(object):
 
     def get_visualizer(self, log_dir):
         """"""
-        visualizer = TrainVisualize(
+        visualizer = Visualize(
             log_dir=os.path.join(log_dir, self.model.__class__.__name__),
             model=self.model
         )
@@ -164,7 +164,7 @@ class Train(object):
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         iteration = checkpoint['iteration']
 
-        # torch.save(self.model, '/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/model_cluster_all_class_gamma_3_iter_100000_pretrained.pth')
+        torch.save(self.model, '/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/model_cluster_foreground_with_ignored_balance_train_iter_100000_pretrained.pth')
         print("Load from %s successfully." % ckpt_path)
         return iteration
 
@@ -226,7 +226,7 @@ class Train(object):
 
                 # visualize train process
                 if iter % args.visualize_interval == 0:
-                    self.visualizer.update(
+                    self.visualizer.train_update(
                         iteration=iter,
                         learning_rate=learning_rate,
                         input=input[0].cpu(),

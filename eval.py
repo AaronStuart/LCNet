@@ -1,21 +1,25 @@
 import argparse
 import json
+import os
 import pickle
 
 import cupy as cp
 import torch
 from tqdm import tqdm
 
-from dataset.apollo import ApolloDaliDataset
+from dataset.apollo import ApolloDaliDataset, ApolloBalanceTrainEvalDataLoader
 from scripts.apollo_label import labels, trainId2name
+from scripts.visualize import Visualize
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--num_classes", type=int, default=38)
 parser.add_argument("--batch_size", type=int, default=1)
 parser.add_argument("--num_threads", type=int, default=1)
-parser.add_argument("--model_path", type=str, default='/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/model_cluster_all_class_gamma_3_iter_100000_pretrained.pth')
+parser.add_argument("--model_path", type=str, default='/home/stuart/PycharmProjects/LCNet/weights/DeepLabV3/model_cluster_foreground_with_ignored_balance_train_iter_100000_pretrained.pth')
 parser.add_argument("--dataset_root_dir", type=str, default='/media/stuart/data/dataset/Apollo/Lane_Detection')
 parser.add_argument("--val_file", type=str, default='./dataset/val_apollo_gray.txt')
+parser.add_argument("--log_dir", type=str, default='/media/stuart/data/events')
+parser.add_argument("--use_dali", type=bool, default=False)
 args = parser.parse_args()
 
 class Evaluation(object):
@@ -26,6 +30,11 @@ class Evaluation(object):
         self.dataloader = dataloader
         self.eval_trainIds = self.getEvalTrainIds()
         self.final_result = {}
+
+        self.visualizer = Visualize(
+            log_dir=os.path.join(args.log_dir, self.model.__class__.__name__),
+            model=self.model
+        )
 
     def getEvalTrainIds(self):
         result = []
@@ -64,9 +73,15 @@ class Evaluation(object):
 
     def eval(self):
         with torch.no_grad():
+            iter = 0
             for data in tqdm(self.dataloader):
-                # Note: DALI's RGB image have changed to BGR sequence, after go through Pytorch, maybe a bug
-                input, label = data[0]['input'][:, [2, 1, 0], :, :].to(self.device), data[0]['label'].to(self.device)
+                if args.use_dali:
+                    # Note: DALI's RGB image have changed to BGR sequence, after go through Pytorch, maybe a bug
+                    input, label = data[0]['input'][:, [2, 1, 0], :, :].to(self.device), data[0]['label'].to(self.device)
+                else:
+                    input, label = data[0], data[1]
+                    input = torch.tensor(input, dtype=torch.float).to(self.device)
+                    label = torch.tensor(label, dtype=torch.uint8).to(self.device)
 
                 # forward
                 logits = self.model(input)['out']
@@ -85,15 +100,28 @@ class Evaluation(object):
                     mode='nearest'
                 ).to(torch.uint8)
 
+                self.visualizer.eval_update(
+                    iteration = iter,
+                    input = input[0].cpu(),
+                    label = label[0].cpu(),
+                    logits = logits[0].cpu(),
+                    predict = predict[0].cpu()
+                )
+
                 # accumulate on batch
                 self.accumulateOnBatch(predict.cpu().numpy(), label.cpu().numpy())
+
+                iter += 1
 
         # calculate IoU for each class
         for class_name, class_dict in self.final_result.items():
             class_tp = class_dict['TP']
             class_fp = class_dict['FP']
             class_fn = class_dict['FN']
-            class_IoU = class_tp / (class_tp + class_fp + class_fn)
+            if class_tp + class_fp + class_fn != 0:
+                class_IoU = class_tp / (class_tp + class_fp + class_fn)
+            else:
+                class_IoU = 0.0
             self.final_result[class_name]['IoU'] = class_IoU
 
         return self.final_result
@@ -106,14 +134,21 @@ if __name__ == '__main__':
     # Load model
     model = torch.load(args.model_path).to(device)
 
-    # Get validation iterator
-    val_iterator = ApolloDaliDataset(
-        root_dir=args.dataset_root_dir,
-        file_path=args.val_file,
-        batch_size=args.batch_size,
-        num_threads=args.num_threads,
-        is_train=False
-    ).getIterator()
+    if args.use_dali:
+        # Get validation iterator
+        val_iterator = ApolloDaliDataset(
+            root_dir=args.dataset_root_dir,
+            file_path=args.val_file,
+            batch_size=args.batch_size,
+            num_threads=args.num_threads,
+            is_train=False
+        ).getIterator()
+    else:
+        val_iterator = ApolloBalanceTrainEvalDataLoader(
+            root_dir=args.dataset_root_dir,
+            file_path=args.val_file,
+            batch_size=args.batch_size
+        )
 
     # Evaluate on val set
     eval_reuslt = Evaluation(
@@ -126,5 +161,5 @@ if __name__ == '__main__':
 
     # Save eval result to disk
     model_name = model.__class__.__name__
-    with open('experiments/%s/cluster_all_class_gamma_3_iter_100000_pretrained.json' % model_name, 'w') as result_file:
+    with open('experiments/%s/cluster_foreground_with_ignored_balance_train_iter_100000_pretrained.json' % model_name, 'w') as result_file:
         json.dump(eval_reuslt, result_file, indent=4)
