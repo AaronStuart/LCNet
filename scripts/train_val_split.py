@@ -89,6 +89,7 @@ class TrainValSplit(object):
         for label_name, label_list in self.split_dict.items():
             all_set.update(set(label_list))
 
+            # only focus on small amount class
             if label_name in ['s_w_d', 's_y_d', 's_w_p', 'b_y_g', 'b_w_g', 'c_wy_z']:
                 continue
 

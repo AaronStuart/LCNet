@@ -49,15 +49,11 @@ if __name__ == '__main__':
     #         'focal': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/focal_100000_iter.json',
     #     }
     # )
+
     multi_json_visualize(
         json_path_dict={
-            'balance_train': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/cluster_foreground_with_ignored_balance_train_iter_100000_pretrained.json',
-            'all_class_gamma_3': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/cluster_all_class_gamma_3_iter_100000_pretrained.json',
-            'all_class': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/cluster_all_iter_100000_pretrained.json',
-            'foreground': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/cluster_without_ignored_iter_100000_pretrained.json',
-            'dynamic': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/dynamic_weighted_cluster_100000_iter_pretrained.json',
-            'cluster': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/cluster_100000_iter_pretrained.json',
-            'pretrained': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/focal_100000_iter_pretrained.json',
-            'no_pretrained': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/focal_100000_iter.json'
+            'balance_train_cluster_loss': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/balance_train_cluster_loss_iter_100000.json',
+            'cluster_loss': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/cluster_loss_iter_100000.json',
+            'baseline': '/home/stuart/PycharmProjects/LCNet/experiments/DeepLabV3/focal_loss_iter_100000.json'
         }
     )

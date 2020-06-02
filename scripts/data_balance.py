@@ -61,7 +61,7 @@ class DataBalance:
         )
 
         # define layout
-        layout = go.Layout(title='class pixel number statistics')
+        layout = go.Layout(title=json_path)
 
         # generate figure
         figure = go.Figure(
@@ -75,10 +75,16 @@ class DataBalance:
 if __name__ == '__main__':
     # data_balance = DataBalance(
     #     root_dir = '/media/stuart/data/dataset/Apollo/Lane_Detection',
-    #     txt_path = '/home/stuart/PycharmProjects/LCNet/dataset/train_apollo_gray.txt',
+    #     txt_path = '/home/stuart/PycharmProjects/LCNet/dataset/apollo_train_gray.txt',
     #     out_path = '/home/stuart/PycharmProjects/LCNet/materials'
     # )
-    #
     # data_balance.generate_statistics()
+    # DataBalance.visualize_statistics('/home/stuart/PycharmProjects/LCNet/materials/apollo_train_gray_statistics.json')
 
-    DataBalance.visualize_statistics('/home/stuart/PycharmProjects/LCNet/materials/train_apollo_gray_statistics.json')
+    # data_balance = DataBalance(
+    #     root_dir='/media/stuart/data/dataset/Apollo/Lane_Detection',
+    #     txt_path='/home/stuart/PycharmProjects/LCNet/dataset/apollo_val_gray.txt',
+    #     out_path='/home/stuart/PycharmProjects/LCNet/materials'
+    # )
+    # data_balance.generate_statistics()
+    DataBalance.visualize_statistics('/home/stuart/PycharmProjects/LCNet/materials/apollo_val_gray_statistics.json')
